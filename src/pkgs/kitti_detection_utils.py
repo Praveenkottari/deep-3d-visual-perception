@@ -74,7 +74,7 @@ def get_uvz_centers(image, velo_uvz, bboxes, draw=True):
             
     return bboxes_out
 
-def get_detection_coordinates(image, bin_path, model,T_velo_cam2, draw_boxes=True, draw_depth=True):
+def get_detection_coordinates(image, bin_path, model,T_velo_cam2,remove_plane=False, draw_boxes=True, draw_depth=True):
     """
     Obtains detections for the input image, along with the coordinates of 
     the detected object centers in:
@@ -113,7 +113,7 @@ def get_detection_coordinates(image, bin_path, model,T_velo_cam2, draw_boxes=Tru
             print("No detections met the criteria.")
     
     # Project LiDAR points to camera space
-    velo_uvz = project_velobin2uvz(bin_path, T_velo_cam2, image, remove_plane=False)
+    velo_uvz = project_velobin2uvz(bin_path, T_velo_cam2, image, remove_plane=remove_plane)
 
     # Map bounding boxes to uvz centers
     if len(filtered_boxes) > 0:

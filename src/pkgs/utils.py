@@ -99,3 +99,28 @@ def get_detection_coordinates(model, image, bin_path, T_velo_cam2, draw_boxes=Tr
         bboxes = []
 
     return bboxes, velo_uvz
+
+def draw_bboxes_on_lidar_image(
+    lidar_image, 
+    bboxes, 
+    color=(0, 255, 0),    # (B, G, R) => red bounding boxes
+    thickness=2
+):
+    
+    for bbox in bboxes:
+        # Unpack the bounding box fields 
+        # (Adjust indices if your format is slightly different)
+        x1, y1, x2, y2 = bbox[0], bbox[1], bbox[2], bbox[3]
+      
+        
+        # Draw bounding box
+        cv2.rectangle(
+            lidar_image,
+            (int(x1), int(y1)),
+            (int(x2), int(y2)),
+            color=color,
+            thickness=thickness
+        )
+
+
+    return lidar_image
