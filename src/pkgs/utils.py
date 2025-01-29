@@ -124,7 +124,6 @@ def input_to_video(model,DATA_PATH,left_image_paths,lid_paths,T_cam2_velo,T_velo
         # get transformed coordinates
         uvz = bboxes[:, -3:]
 
-
         # draw velo on blank image
         velo_image = draw_velo_on_image(velo_uvz, np.zeros_like(left_image))
 
@@ -138,19 +137,15 @@ def input_to_video(model,DATA_PATH,left_image_paths,lid_paths,T_cam2_velo,T_velo
 
 
         # draw top down scenario on canvas
-        canvas = draw_scenario(uvz,T_cam2_velo)
+        canvas = draw_scenario(uvz,T_cam2_velo,line_draw=True)
 
         # place everything in a single frame
         frame = np.hstack((stacked, 
                         255*np.ones((canvas_height, 1, 3), dtype=np.uint8),
                         canvas))
-        vid_show = Image.fromarray(frame)
-        vid_show.show()
-
+    
         # add to result video
         result_video.append(frame)
-
         h, w, _ = frame.shape
-
 
     return result_video,cam2_fps,h,w

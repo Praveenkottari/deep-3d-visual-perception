@@ -38,12 +38,12 @@ image_paths = sorted(glob(os.path.join(DATA_PATH, 'image_02/data/*.png')))
 #lidar path
 lid_paths = sorted(glob(os.path.join(DATA_PATH, 'velodyne_points/data/*.bin')))
 #GPS/IMU path
-imu_paths = sorted(glob(os.path.join(DATA_PATH, r'oxts/data**/*.txt')))
+# imu_paths = sorted(glob(os.path.join(DATA_PATH, r'oxts/data**/*.txt')))
 
 
 print(f"Number of left images: {len(image_paths)}")
 print(f"Number of LiDAR point clouds: {len(lid_paths)}")
-print(f"Number of GPS/IMU frames: {len(imu_paths)}")
+# print(f"Number of GPS/IMU frames: {len(imu_paths)}")
 
 cam_calib_file = './../dataset/2011_10_03_calib/calib_cam_to_cam.txt'
 P_rect2_cam2,R_ref0_rect2,T_ref0_ref2 = cam_transformation(cam_calib_file)
@@ -75,7 +75,7 @@ model = detection_model(weights,classes)
 
 
 #################################################################################
-def main(video=True):
+def main(save_vdeo=True):
     index = 8
 
     image_original = cv2.cvtColor(cv2.imread(image_paths[index]), cv2.COLOR_BGR2RGB)
@@ -103,17 +103,19 @@ def main(video=True):
 
     uvz = bboxes[:, -3:]
     #lidar co ordinate for detected obejcts 
-    canvas_out = draw_scenario(uvz,T_cam2_velo)
+    canvas_out = draw_scenario(uvz,T_cam2_velo,line_draw=True)
     Image.fromarray(canvas_out).show()
 
     #lidar on image
     velo_on_image = draw_velo_on_image(velo_uvz, image_original)
     Image.fromarray(velo_on_image).show()
     
-    if video: 
+
+    ## Image to video
+    if save_vdeo: 
         #imgae to video
         result_video,cam2_fps,h,w = input_to_video(model,DATA_PATH,image_paths,lid_paths,T_cam2_velo,T_velo_cam2)
-        out = cv2.VideoWriter('./result/out2.avi',
+        out = cv2.VideoWriter('./result/out1.avi',
                         cv2.VideoWriter_fourcc(*'DIVX'), 
                         cam2_fps, 
                         (w,h))
@@ -124,4 +126,4 @@ def main(video=True):
 
 ###################################################################################################################
 if __name__ == "__main__":
-    main(video=True)
+    main(save_vdeo=False)
