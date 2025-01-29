@@ -3,7 +3,8 @@ import cv2
 from PIL import Image
 from pkgs.kitti_utils import *
 from models.detection_head import *
-
+from BEV.bev import *
+from pkgs.kitti_detection_utils import *
 def get_uvz_centers(image, velo_uvz, bboxes, draw=True):
     ''' Inputs:
           image  
@@ -57,48 +58,7 @@ def get_uvz_centers(image, velo_uvz, bboxes, draw=True):
                         (255, 0, 0), 2, cv2.LINE_AA)    
             
     return bboxes_out
-
-def get_detection_coordinates(model, image, bin_path, T_velo_cam2, draw_boxes=True):
-    # Perform detection
-    detections = model(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-    detections = model(image)
     
-    # Filter detections based on confidence and class indices
-    desired_classes = [0, 1, 2, 3, 5, 7]  # Only person, bicycle, car, motorcycle, bus, truck
-    confidence_threshold = 0.5
-    filtered_boxes = []
-    for box in detections[0].boxes.data.cpu().numpy():  # [x1, y1, x2, y2, confidence, class]
-        confidence, cls = box[4], int(box[5])
-        if confidence >= confidence_threshold and cls in desired_classes:
-            filtered_boxes.append(box)
-    
-    filtered_boxes = np.array(filtered_boxes)
-    
-    # Draw boxes on the image
-    if draw_boxes:
-        if len(filtered_boxes) > 0:
-            for box in filtered_boxes:
-                x1, y1, x2, y2, conf, cls = box
-                label = f"{model.names[int(cls)]} {conf:.2f}"
-                # Draw rectangle and label on the image
-                image = cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 1)
-                image = cv2.putText(image, label, (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-            
-            Image.fromarray(image).show()
-
-        else:
-            print("No detections met the criteria.")
-    
-    # Project LiDAR points to camera space
-    velo_uvz = project_velobin2uvz(bin_path, T_velo_cam2, image, remove_plane=False)
-
-    # Map bounding boxes to uvz centers
-    if len(filtered_boxes) > 0:
-        bboxes = get_uvz_centers(image, velo_uvz, filtered_boxes)
-    else:
-        bboxes = []
-
-    return bboxes, velo_uvz
 
 def draw_bboxes_on_lidar_image(
     lidar_image, 
@@ -121,6 +81,76 @@ def draw_bboxes_on_lidar_image(
             color=color,
             thickness=thickness
         )
-
-
     return lidar_image
+
+### video function from series of images
+
+get_total_seconds = lambda hms: hms[0]*60*60 + hms[1]*60 + hms[2]
+
+
+def timestamps2seconds(timestamp_path):
+    ''' Reads in timestamp path and returns total seconds (does not account for day rollover '''
+    timestamps = pd.read_csv(timestamp_path, 
+                             header=None) \
+                             .squeeze(axis=1).astype(object) \
+                                          .apply(lambda x: x.split(' ')[1]) 
+    
+    # Get Hours, Minutes, and Seconds
+    hours = timestamps.apply(lambda x: x.split(':')[0]).astype(np.float64)
+    minutes = timestamps.apply(lambda x: x.split(':')[1]).astype(np.float64)
+    seconds = timestamps.apply(lambda x: x.split(':')[2]).astype(np.float64)
+
+    hms_vals = np.vstack((hours, minutes, seconds)).T
+    
+    total_seconds = np.array(list(map(get_total_seconds, hms_vals)))
+    
+    return total_seconds
+
+
+result_video = []
+
+def input_to_video(model,DATA_PATH,left_image_paths,lid_paths,T_cam2_velo,T_velo_cam2):
+    cam2_total_seconds = timestamps2seconds(os.path.join(DATA_PATH, r'image_02/timestamps.txt'))
+    cam2_fps = 1/np.median(np.diff(cam2_total_seconds))
+
+    for index in range(len(left_image_paths)-1):
+        left_image = cv2.cvtColor(cv2.imread(left_image_paths[index]), cv2.COLOR_BGR2RGB)
+        bin_path = lid_paths[index]
+        # oxts_frame = get_oxts(oxts_paths[index])
+
+        # get detections and object centers in uvz
+        bboxes, velo_uvz = get_detection_coordinates(left_image, bin_path,model,T_velo_cam2, remove_plane=False)
+
+        # get transformed coordinates
+        uvz = bboxes[:, -3:]
+
+
+        # draw velo on blank image
+        velo_image = draw_velo_on_image(velo_uvz, np.zeros_like(left_image))
+
+        # stack frames
+        stacked = np.vstack((left_image, velo_image))
+        stacked_h, stacked_w, _ = stacked.shape
+        if stacked_h != canvas_height:
+            # scale width proportionally
+            new_width = int((stacked_w / stacked_h) * canvas_height)
+            stacked = cv2.resize(stacked, (new_width, canvas_height))
+
+
+        # draw top down scenario on canvas
+        canvas = draw_scenario(uvz,T_cam2_velo)
+
+        # place everything in a single frame
+        frame = np.hstack((stacked, 
+                        255*np.ones((canvas_height, 1, 3), dtype=np.uint8),
+                        canvas))
+        vid_show = Image.fromarray(frame)
+        vid_show.show()
+
+        # add to result video
+        result_video.append(frame)
+
+        h, w, _ = frame.shape
+
+
+    return result_video,cam2_fps,h,w

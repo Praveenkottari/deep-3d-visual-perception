@@ -87,7 +87,7 @@ def get_detection_coordinates(image, bin_path, model,T_velo_cam2,remove_plane=Fa
     
     # Filter detections based on confidence and class indices
     desired_classes = [0, 1, 2, 3, 5, 7]  # Only person, bicycle, car, motorcycle, bus, truck
-    confidence_threshold = 0.3
+    confidence_threshold = 0.5
     filtered_boxes = []
     for box in detections[0].boxes.data.cpu().numpy():  # [x1, y1, x2, y2, confidence, class]
         confidence, cls = box[4], int(box[5])

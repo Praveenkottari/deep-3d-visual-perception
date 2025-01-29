@@ -75,7 +75,7 @@ model = detection_model(weights,classes)
 
 
 #################################################################################
-def main():
+def main(video=True):
     index = 8
 
     image_original = cv2.cvtColor(cv2.imread(image_paths[index]), cv2.COLOR_BGR2RGB)
@@ -83,7 +83,6 @@ def main():
     left_image = image_original.copy()
     bin_path = lid_paths[index]
     #oxts_frame = get_oxts(imu_paths[index])
-
 
 
     # get detections and object centers in uvz
@@ -110,8 +109,19 @@ def main():
     #lidar on image
     velo_on_image = draw_velo_on_image(velo_uvz, image_original)
     Image.fromarray(velo_on_image).show()
-
+    
+    if video: 
+        #imgae to video
+        result_video,cam2_fps,h,w = input_to_video(model,DATA_PATH,image_paths,lid_paths,T_cam2_velo,T_velo_cam2)
+        out = cv2.VideoWriter('./result/out2.avi',
+                        cv2.VideoWriter_fourcc(*'DIVX'), 
+                        cam2_fps, 
+                        (w,h))
+    
+        for i in range(len(result_video)):
+            out.write(cv2.cvtColor(result_video[i], cv2.COLOR_BGR2RGB))
+        out.release()
 
 ###################################################################################################################
 if __name__ == "__main__":
-    main()
+    main(video=True)
