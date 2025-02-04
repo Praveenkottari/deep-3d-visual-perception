@@ -11,7 +11,7 @@ from pkgs.kitti_utils import *
 from pkgs.kitti_detection_utils import *
 from pkgs.utils import *
 
-from models.detection_head import *
+from heads.detection_head import *
 from calibration.cam_to_cam import *
 from calibration.lid_to_cam import *
 from calibration.imu_to_lid import *
@@ -22,7 +22,8 @@ from sklearn import linear_model
 from sklearn import linear_model
 from sklearn.cluster import DBSCAN
 
-from models.detection_head import *
+from heads.detection_head import *
+
 
 import folium
 
@@ -71,11 +72,9 @@ model = detection_model(weights,classes)
 ####################################################################################
 
 
-
-
-
 #################################################################################
 def main(save_vdeo=True):
+
     index = 8
 
     image_original = cv2.cvtColor(cv2.imread(image_paths[index]), cv2.COLOR_BGR2RGB)
@@ -86,8 +85,10 @@ def main(save_vdeo=True):
 
 
     # get detections and object centers in uvz
-    bboxes, velo_uvz = get_detection_coordinates(left_image, bin_path, model,T_velo_cam2, remove_plane=False)
+    bboxes, velo_uvz = get_detection_coordinates(left_image, bin_path, model,T_velo_cam2, remove_plane=True)
     Image.fromarray(left_image).show()
+
+
 
     # draw LiDAR points on a blank image or a copy of left_image
     lidar_proj_image = np.zeros_like(left_image)  # black background

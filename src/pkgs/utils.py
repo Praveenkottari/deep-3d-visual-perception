@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 from PIL import Image
 from pkgs.kitti_utils import *
-from models.detection_head import *
+from heads.detection_head import *
 from BEV.bev import *
 from pkgs.kitti_detection_utils import *
 def get_uvz_centers(image, velo_uvz, bboxes, draw=True):

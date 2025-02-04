@@ -1,0 +1,11 @@
+fusion_ws
+cd ~/1_Thesis/visionNav/ros/fusion_ws
+ros2 run kitti_detection kitti_detection_node
+
+
+###
+cd ~/1_Thesis/visionNav/ros/pc_ws
+
+ros2 run ros2_kitti_publishers kitti_publishers 
+
+
