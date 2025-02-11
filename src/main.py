@@ -67,7 +67,7 @@ T_cam2_imu = np.linalg.inv(np.insert(T_imu_cam2, 3, values=[0,0,0,1], axis=0))
 ####################################################################################
 # detection model
 
-model = detection_model(weights,classes)
+model = detection_model()
 
 ####################################################################################
 
@@ -116,7 +116,7 @@ def main(save_vdeo=True):
     if save_vdeo: 
         #imgae to video
         result_video,cam2_fps,h,w = input_to_video(model,DATA_PATH,image_paths,lid_paths,T_cam2_velo,T_velo_cam2)
-        out = cv2.VideoWriter('./result/out1.avi',
+        out = cv2.VideoWriter('./results/out1.avi',
                         cv2.VideoWriter_fourcc(*'DIVX'), 
                         cam2_fps, 
                         (w,h))
