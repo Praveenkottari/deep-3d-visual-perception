@@ -1,12 +1,3 @@
-"""
-# -*- coding: utf-8 -*-
------------------------------------------------------------------------------------
-# Author: Nguyen Mau Dung
-# DoC: 2020.08.17
-# email: nguyenmaudung93.kstn@gmail.com
------------------------------------------------------------------------------------
-# Description: Demonstration script for both front view and back view
-"""
 
 import sys
 import os
@@ -17,12 +8,6 @@ warnings.filterwarnings("ignore", category=UserWarning)
 import cv2
 import torch
 import numpy as np
-
-# src_dir = os.path.dirname(os.path.realpath(__file__))
-# while not src_dir.endswith("sfa"):
-#     src_dir = os.path.dirname(src_dir)
-# if src_dir not in sys.path:
-#     sys.path.append(src_dir)
 
 from heads.SFA3D.sfa.data_process.demo_dataset import Demo_KittiDataset
 from heads.SFA3D.sfa.models.model_utils import create_model

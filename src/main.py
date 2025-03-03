@@ -28,11 +28,10 @@ from heads.detection_head import *
 import folium
 
 
-
 ###################################################################################
 
 #dataset 
-DATA_PATH = r'./../dataset/2011_10_03_drive_0047_sync'
+DATA_PATH = r'/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0027_sync/'
 
 #image path
 image_paths = sorted(glob(os.path.join(DATA_PATH, 'image_02/data/*.png')))
@@ -42,40 +41,40 @@ lid_paths = sorted(glob(os.path.join(DATA_PATH, 'velodyne_points/data/*.bin')))
 # imu_paths = sorted(glob(os.path.join(DATA_PATH, r'oxts/data**/*.txt')))
 
 
-print(f"Number of left images: {len(image_paths)}")
-print(f"Number of LiDAR point clouds: {len(lid_paths)}")
+# print(f"Number of left images: {len(image_paths)}")
+# print(f"Number of LiDAR point clouds: {len(lid_paths)}")
 # print(f"Number of GPS/IMU frames: {len(imu_paths)}")
 
-cam_calib_file = './../dataset/2011_10_03_calib/calib_cam_to_cam.txt'
+cam_calib_file = '/home/airl010/1_Thesis/deep-3d-visual-perception/dataset/2011_10_03_calib/calib_cam_to_cam.txt'
 P_rect2_cam2,R_ref0_rect2,T_ref0_ref2 = cam_transformation(cam_calib_file)
 
-lid_calib_file = './../dataset/2011_10_03_calib/calib_velo_to_cam.txt'
+lid_calib_file = '/home/airl010/1_Thesis/deep-3d-visual-perception/dataset/2011_10_03_calib/calib_velo_to_cam.txt'
 T_velo_ref0 = lid_transformation(lid_calib_file)
 
-imu_calib_file = './../dataset/2011_10_03_calib/calib_imu_to_velo.txt'
+imu_calib_file = '/home/airl010/1_Thesis/deep-3d-visual-perception/dataset/2011_10_03_calib/calib_imu_to_velo.txt'
 T_imu_velo = imu_transformation(imu_calib_file)
+
 
 # transform from velo (LiDAR) to left color camera (shape 3x4)
 T_velo_cam2 = P_rect2_cam2 @ R_ref0_rect2 @ T_ref0_ref2 @ T_velo_ref0 
 # homogeneous transform from left color camera to velo (LiDAR) (shape: 4x4)
 T_cam2_velo = np.linalg.inv(np.insert(T_velo_cam2, 3, values=[0,0,0,1], axis=0)) 
+
 # transform from IMU to left color camera (shape 3x4)
-T_imu_cam2 = T_velo_cam2 @ T_imu_velo
-# homogeneous transform from left color camera to IMU (shape: 4x4)
-T_cam2_imu = np.linalg.inv(np.insert(T_imu_cam2, 3, values=[0,0,0,1], axis=0)) 
+# T_imu_cam2 = T_velo_cam2 @ T_imu_velo
+# # homogeneous transform from left color camera to IMU (shape: 4x4)
+# T_cam2_imu = np.linalg.inv(np.insert(T_imu_cam2, 3, values=[0,0,0,1], axis=0)) 
 
 ####################################################################################
 # detection model
-
 model = detection_model()
-
 ####################################################################################
 
 
 #################################################################################
 def main(save_vdeo=True):
 
-    index = 8
+    index = 3
 
     image_original = cv2.cvtColor(cv2.imread(image_paths[index]), cv2.COLOR_BGR2RGB)
 
@@ -87,8 +86,6 @@ def main(save_vdeo=True):
     # get detections and object centers in uvz
     bboxes, velo_uvz = get_detection_coordinates(left_image, bin_path, model,T_velo_cam2, remove_plane=True)
     Image.fromarray(left_image).show()
-
-
 
     # draw LiDAR points on a blank image or a copy of left_image
     lidar_proj_image = np.zeros_like(left_image)  # black background
@@ -116,7 +113,7 @@ def main(save_vdeo=True):
     if save_vdeo: 
         #imgae to video
         result_video,cam2_fps,h,w = input_to_video(model,DATA_PATH,image_paths,lid_paths,T_cam2_velo,T_velo_cam2)
-        out = cv2.VideoWriter('./results/out1.avi',
+        out = cv2.VideoWriter('/home/airl010/1_Thesis/deep-3d-results/results_detect/out1.avi',
                         cv2.VideoWriter_fourcc(*'DIVX'), 
                         cam2_fps, 
                         (w,h))

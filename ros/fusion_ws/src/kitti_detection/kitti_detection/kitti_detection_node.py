@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 ROS2 Node with:
- - YOLOv8 (reduced resolution for faster speed)
  - Ground-plane removal (RANSAC) for LiDAR
  - Bird's-Eye-View (BEV) top-down image from LiDAR
  - Publishes an "object-only" point cloud (non-ground)
@@ -155,7 +154,7 @@ class KittiCalibratedNode(Node):
         self.bridge = CvBridge()
 
         # (1) YOLO model – reduce resolution for speed
-        self.model = YOLO("yolov8n.pt")
+        self.model = YOLO("/home/airl010/1_Thesis/deep-3d-visual-perception/weights/yolov8/yolov8n.pt")
         # Move to GPU if available
         if torch.cuda.is_available():
             self.get_logger().info("Using GPU for YOLO inference...")
@@ -170,8 +169,8 @@ class KittiCalibratedNode(Node):
         self.model.classes = [0,1,2,3,5,7]  # person,bicycle,car,motorcycle,bus,truck
 
         # calibration file paths – set them to your actual paths
-        self.calib_cam_to_cam  = '/path/to/calib_cam_to_cam.txt'
-        self.calib_velo_to_cam = '/path/to/calib_velo_to_cam.txt'
+        self.calib_cam_to_cam  = '/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/calib_cam_to_cam.txt'
+        self.calib_velo_to_cam = '/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/calib_velo_to_cam.txt'
         self.load_calibrations()
 
         # (2) Publishers
