@@ -12,9 +12,9 @@ from pkgs.kitti_detection_utils import *
 from pkgs.utils import *
 
 from heads.detection_head import *
-from calibration.cam_to_cam import *
-from calibration.lid_to_cam import *
-from calibration.imu_to_lid import *
+from ..calibration.cam_to_cam import cam_transformation
+from ..calibration.lid_to_cam import lid_transformation
+from ..calibration.imu_to_lid import imu_transformation
 
 from BEV.bev import *
 

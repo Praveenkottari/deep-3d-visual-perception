@@ -23,7 +23,7 @@ def get_uvz_centers(image, velo_uvz, bboxes, draw=True):
         Inputs:
           image - input image for detection 
           velo_uvz - LiDAR coordinates projected to camera reference
-          bboxes - xyxy bounding boxes from detections from yolov5 model output
+          bboxes - xyxy bounding boxes form detections from yolov5 model output
           draw - (_Bool) draw measured depths on image
         Outputs:
           bboxes_out - modified array containing the object centers projected
@@ -70,11 +70,14 @@ def get_uvz_centers(image, velo_uvz, bboxes, draw=True):
                         object_center, # top left
                         cv2.FONT_HERSHEY_SIMPLEX, 
                         0.5, # font scale
-                        (255, 255, 255), 2, cv2.LINE_AA)    
+                        (255, 0, 0), 2, cv2.LINE_AA)    
             
     return bboxes_out
 
-def get_detection_coordinates(image, bin_path, model,T_velo_cam2,remove_plane=True, draw_boxes=False, draw_depth=True):
+  
+  
+
+def get_detection_coordinates(image, bin_path, model,T_velo_cam2, draw_boxes=True, draw_depth=True):
     """
     Obtains detections for the input image, along with the coordinates of 
     the detected object centers in:
@@ -87,7 +90,7 @@ def get_detection_coordinates(image, bin_path, model,T_velo_cam2,remove_plane=Tr
     
     # Filter detections based on confidence and class indices
     desired_classes = [0, 1, 2, 3, 5, 7]  # Only person, bicycle, car, motorcycle, bus, truck
-    confidence_threshold = 0.1
+    confidence_threshold = 0.5
     filtered_boxes = []
     for box in detections[0].boxes.data.cpu().numpy():  # [x1, y1, x2, y2, confidence, class]
         confidence, cls = box[4], int(box[5])
@@ -104,16 +107,20 @@ def get_detection_coordinates(image, bin_path, model,T_velo_cam2,remove_plane=Tr
                 label = f"{model.names[int(cls)]} {conf:.2f}"
                 # Draw rectangle and label on the image
                 image = cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 1)
-                image = cv2.putText(image, label, (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
+                image = cv2.putText(image, label, (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             
-            # image_2dbox = Image.fromarray(image)
-            # image_2dbox.show()  
-  
+            
+            # image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  
+            image_2dbox = Image.fromarray(image)
+            image_2dbox.show()  # Opens the image in the default viewer
+            # plt.imshow(cv2.cvtColor(image_rgb, cv2.COLOR_BGR2RGB))
+            # plt.axis('off')
+            # plt.show()
         else:
             print("No detections met the criteria.")
     
     # Project LiDAR points to camera space
-    velo_uvz = project_velobin2uvz(bin_path, T_velo_cam2, image, remove_plane=remove_plane)
+    velo_uvz = project_velobin2uvz(bin_path, T_velo_cam2, image, remove_plane=False)
 
     # Map bounding boxes to uvz centers
     if len(filtered_boxes) > 0:
@@ -124,7 +131,7 @@ def get_detection_coordinates(image, bin_path, model,T_velo_cam2,remove_plane=Tr
     return bboxes, velo_uvz
   
   
-def get_imu_xyz(image, bin_path, T_velo_cam, T_cam_imu):
+def get_imu_xyz(image, bin_path, model, T_velo_cam, T_cam_imu):
      ''' Obtains (x,y,z) location referenced to IMU 
          Camera reference specified by image and Transformation Matrices, 
          Can use any camera as the reference
@@ -132,6 +139,7 @@ def get_imu_xyz(image, bin_path, T_velo_cam, T_cam_imu):
      # get detections and object centers in uvz
      bboxes, velo_uvz = get_detection_coordinates(image, 
                                                   bin_path, 
+                                                  model, 
                                                   T_velo_cam,
                                                   draw_boxes=False,
                                                   draw_depth=False)

@@ -12,13 +12,12 @@ setup(
          ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools','pytest'],
     zip_safe=True,
     maintainer='Your Name',
     maintainer_email='you@example.com',
     description='ROS2 node for KITTI detection with YOLOv8 and LiDAR overlay',
     license='MIT',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'kitti_detection_node = kitti_detection.kitti_detection_node:main',

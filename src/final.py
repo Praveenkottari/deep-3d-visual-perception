@@ -1,145 +1,194 @@
-import os
-from glob import glob
-import cv2
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from PIL import Image
-import matplotlib.image as mpimg
 
+import sys
+import os
+import warnings
+
+warnings.filterwarnings("ignore", category=UserWarning)
+
+import cv2
+import torch
+import numpy as np
+
+from heads.SFA3D.sfa.data_process.demo_dataset import Demo_KittiDataset
+from heads.SFA3D.sfa.models.model_utils import create_model
+from heads.SFA3D.sfa.utils.evaluation_utils import draw_predictions, convert_det_to_real_values
+import heads.SFA3D.sfa.config.kitti_config as cnf
+from heads.SFA3D.sfa.data_process.transformation import lidar_to_camera_box
+from heads.SFA3D.sfa.utils.visualization_utils import show_rgb_image_with_boxes
+from heads.SFA3D.sfa.data_process.kitti_data_utils import Calibration
+from heads.SFA3D.sfa.utils.demo_utils import parse_demo_configs, do_detect, write_credit
+
+# detection model 
 from pkgs.kitti_utils import *
 from pkgs.kitti_detection_utils import *
 from pkgs.utils import *
 
 from heads.detection_head import *
-from calibration.cam_to_cam import *
-from calibration.lid_to_cam import *
-from calibration.imu_to_lid import *
 
 from BEV.bev import *
-
-from sklearn import linear_model
-from sklearn import linear_model
-from sklearn.cluster import DBSCAN
-
 from heads.detection_head import *
 
 
-import folium
-
-
-###################################################################################
-
-#dataset 
-DATA_PATH = r'home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0027_sync'
-
-#image path
-image_paths = sorted(glob(os.path.join(DATA_PATH, 'image_02/data/*.png')))
-#lidar path
-lid_paths = sorted(glob(os.path.join(DATA_PATH, 'velodyne_points/data/*.bin')))
-#GPS/IMU path
-# imu_paths = sorted(glob(os.path.join(DATA_PATH, r'oxts/data**/*.txt')))
-
-
-# print(f"Number of left images: {len(image_paths)}")
-# print(f"Number of LiDAR point clouds: {len(lid_paths)}")
-# print(f"Number of GPS/IMU frames: {len(imu_paths)}")
-
-cam_calib_file = './../dataset/2011_10_03_calib/calib_cam_to_cam.txt'
-P_rect2_cam2,R_ref0_rect2,T_ref0_ref2 = cam_transformation(cam_calib_file)
-
-lid_calib_file = './../dataset/2011_10_03_calib/calib_velo_to_cam.txt'
-T_velo_ref0 = lid_transformation(lid_calib_file)
-
-imu_calib_file = './../dataset/2011_10_03_calib/calib_imu_to_velo.txt'
-T_imu_velo = imu_transformation(imu_calib_file)
-
-
-# transform from velo (LiDAR) to left color camera (shape 3x4)
-T_velo_cam2 = P_rect2_cam2 @ R_ref0_rect2 @ T_ref0_ref2 @ T_velo_ref0 
-# homogeneous transform from left color camera to velo (LiDAR) (shape: 4x4)
-T_cam2_velo = np.linalg.inv(np.insert(T_velo_cam2, 3, values=[0,0,0,1], axis=0)) 
-
-# transform from IMU to left color camera (shape 3x4)
-# T_imu_cam2 = T_velo_cam2 @ T_imu_velo
-# # homogeneous transform from left color camera to IMU (shape: 4x4)
-# T_cam2_imu = np.linalg.inv(np.insert(T_imu_cam2, 3, values=[0,0,0,1], axis=0)) 
-
-####################################################################################
 # detection model
 model = detection_model()
-####################################################################################
+
+T_velo_cam2 = np.array([
+    [607.48, -718.54, -10.188, -95.573],
+    [180.03, 5.8992, -720.15, -93.457],
+    [0.99997, 0.00048595, -0.0072069, -0.28464]
+])
+
+# Convert to 4x4 homogeneous transformation matrix
+T_homogeneous = np.vstack([T_velo_cam2, [0, 0, 0, 1]])
+
+# Compute inverse
+T_came2_velo = np.linalg.inv(T_homogeneous)
 
 
-#################################################################################
-def main(save_vdeo=True):
-
-    #index = 1
-
-    # image_original = cv2.cvtColor(cv2.imread(image_paths[index]), cv2.COLOR_BGR2RGB)
-
-    # left_image = image_original.copy()
-    # bin_path = lid_paths[index]
-    #oxts_frame = get_oxts(imu_paths[index])
-
-
-    # get detections and object centers in uvz
-    #bboxes, velo_uvz = get_detection_coordinates(left_image, bin_path, model,T_velo_cam2, remove_plane=True)
-    #Image.fromarray(left_image).show()
-
-
-
-    # draw LiDAR points on a blank image or a copy of left_image
-    #lidar_proj_image = np.zeros_like(left_image)  # black background
-    #lidar_proj_image = draw_velo_on_image(velo_uvz, lidar_proj_image)
-
-    ## #Draw bounding boxes onto the LiDAR-projected image
-    # lidar_proj_image_with_bboxes = draw_bboxes_on_lidar_image(lidar_proj_image.copy(), bboxes)
-    # Image.fromarray(lidar_proj_image_with_bboxes).show()
-
-    # #lidar points in the frame
-    # velo_image = draw_velo_on_image(velo_uvz, np.zeros_like(left_image))
-    # Image.fromarray(velo_image).show()
-
-    #uvz = bboxes[:, -3:]
-    #lidar co ordinate for detected obejcts 
-    #canvas_out = draw_scenario(uvz,T_cam2_velo,line_draw=True)
-    #Image.fromarray(canvas_out).show()
-
-    #lidar on image
-    #velo_on_image = draw_velo_on_image(velo_uvz, image_original)
-    #Image.fromarray(velo_on_image).show()
+def main():
     
+    configs = parse_demo_configs()
 
-    ## Image to video
-    if save_vdeo:
-        # Perform inference on all frames (or however input_to_video is designed)
-        result_video, cam2_fps, h, w = input_to_video(
-            model, DATA_PATH, image_paths, lid_paths, 
-            T_cam2_velo, T_velo_cam2
-        )
-        
-        # Create video writer
-        out_path = './results/out6.avi'
-        fourcc = cv2.VideoWriter_fourcc(*'DIVX')
-        out = cv2.VideoWriter(out_path, fourcc, cam2_fps, (w, h))
+    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0027_sync/"
 
-        # Loop through the frames for real-time display + writing
-        for frame in result_video:
-            # If frames are in RGB, convert to BGR for OpenCV display & writing
-            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+    model3d = create_model(configs)
+    print('\n\n' + '-*=' * 30 + '\n\n')
+    assert os.path.isfile(configs.pretrained_path), "No file at {}".format(configs.pretrained_path)
+    model3d.load_state_dict(torch.load(configs.pretrained_path, map_location='cpu'))
+    print('Loaded weights from {}\n'.format(configs.pretrained_path))
+
+    # Updated line
+    configs.device = torch.device('cpu' if configs.no_cuda or configs.gpu_idx == -1 else 'cuda:{}'.format(configs.gpu_idx))
+    # configs.device = torch.device('cpu' if configs.no_cuda else 'cuda:{}'.format(configs.gpu_idx))
+    model3d = model3d.to(device=configs.device)
+    model3d.eval()
+
+    out_cap = None
+    demo_dataset = Demo_KittiDataset(configs)
+     
+
+    draw_boxes =True
+    with torch.no_grad():
+        for sample_idx in range(len(demo_dataset)):
             
-            # Write frame to video
-            out.write(frame_bgr)
+            metadatas, front_bevmap, back_bevmap, img_rgb = demo_dataset.load_bevmap_front_vs_back(sample_idx)
+            # cv2.imshow("demo",cv2.COLOR_BGR2RGB(img_rgb))
+            front_detections, front_bevmap, fps = do_detect(configs, model3d, front_bevmap, is_front=True)
+            back_detections, back_bevmap, _ = do_detect(configs, model3d, back_bevmap, is_front=False)
 
-            # Show frame in real-time
-            cv2.imshow("Inference", frame_bgr)
+            # Draw prediction in the image
+            front_bevmap = (front_bevmap.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
+            front_bevmap = cv2.resize(front_bevmap, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT))
+            front_bevmap = draw_predictions(front_bevmap, front_detections, configs.num_classes)
+            # Rotate the front_bevmap
+            front_bevmap = cv2.rotate(front_bevmap, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+            # Draw prediction in the image
+            back_bevmap = (back_bevmap.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
+            back_bevmap = cv2.resize(back_bevmap, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT))
+            back_bevmap = draw_predictions(back_bevmap, back_detections, configs.num_classes)
+            # Rotate the back_bevmap
+            back_bevmap = cv2.rotate(back_bevmap, cv2.ROTATE_90_CLOCKWISE)
+
+            # merge front and back bevmap
+            full_bev = np.concatenate((back_bevmap, front_bevmap), axis=1)
+            img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+
+
+
+            # detections = model(img_bgr)
+
+            # # Filter detections based on confidence and class indices
+            # desired_classes = [0, 1, 2, 3, 5, 7]  # Only person, bicycle, car, motorcycle, bus, truck
+            # confidence_threshold = 0.5
+            # filtered_boxes = []
+            # for box in detections[0].boxes.data.cpu().numpy():  # [x1, y1, x2, y2, confidence, class]
+            #     confidence, cls = box[4], int(box[5])
+            #     if confidence >= confidence_threshold and cls in desired_classes:
+            #         filtered_boxes.append(box)
+            
+            # filtered_boxes = np.array(filtered_boxes)
+            
+            # # Draw boxes on the image
+            # if draw_boxes:
+            #     if len(filtered_boxes) > 0:
+            #         for box in filtered_boxes:
+            #             x1, y1, x2, y2, conf, cls = box
+            #             label = f"{model.names[int(cls)]} {conf:.2f}"
+            #             # Draw rectangle and label on the image
+            #             # image = cv2.rectangle(img_bgr, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 1)
+            #             image = cv2.putText(img_bgr, label, (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
+        
+            #     else:
+            #         print("No detections met the criteria.")
+
+
+            calib = Calibration(configs.calib_path)
+
+
+
+
+            kitti_dets = convert_det_to_real_values(front_detections)
+            if len(kitti_dets) > 0:
+                kitti_dets[:, 1:] = lidar_to_camera_box(kitti_dets[:, 1:], calib.V2C, calib.R0, calib.P2)
+                img_bgr = show_rgb_image_with_boxes(img_bgr, kitti_dets, calib)
+            img_bgr = cv2.resize(img_bgr, (cnf.BEV_WIDTH * 2, 375))
+            
+
+            _,left_image = demo_dataset.get_image(sample_idx)
+            bin_path = demo_dataset.get_lidar_path(sample_idx)
+
+            left_image = cv2.cvtColor(left_image, cv2.COLOR_RGB2BGR)
+
+ 
+            bboxes, velo_uvz = get_detection_coordinates(left_image, bin_path, model,T_velo_cam2)
+            
+            velo_image = draw_velo_on_image(velo_uvz, left_image)
+            cv2.imshow("projection",velo_image)
+
+
+
+
+
+
+            # uvz = bboxes[:, -3:]
+            # #lidar co ordinate for detected obejcts 
+            # canvas_out = draw_scenario(uvz,T_came2_velo,line_draw=True)
+            # cv2.imshow("dist",canvas_out)
+
+
+
+  
+
+            out_img = np.concatenate((img_bgr, full_bev), axis=0)
+            write_credit(out_img, (50, 410), text_author='', org_fps=(900, 410), fps=fps)
+
+            # Create the video writer if not already created
+            if out_cap is None:
+                out_cap_h, out_cap_w = out_img.shape[:2]
+                fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+                out_path = os.path.join(configs.results_dir, '{}lid_cam_off_road.avi'.format(configs.foldername))
+                print('Create video writer at {}'.format(out_path))
+                out_cap = cv2.VideoWriter(out_path, fourcc, 15, (out_cap_w, out_cap_h))
+
+            # Write the output frame to the video
+            out_cap.write(out_img)
+
+            # DISPLAY IN REAL TIME
+            # --------------------
+            cv2.imshow("SFA3D Demo", out_img)
             key = cv2.waitKey(1) & 0xFF
+            # If you want to stop early by pressing 'q'
             if key == ord('q'):
                 break
-        
-        out.release()
-        cv2.destroyAllWindows()
-###################################################################################################################
-if __name__ == "__main__":
-    main(save_vdeo=True)
+
+    if out_cap:
+        out_cap.release()
+    cv2.destroyAllWindows()
+
+
+
+
+
+if __name__ == '__main__':
+    main()

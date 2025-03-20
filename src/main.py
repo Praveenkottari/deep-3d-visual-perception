@@ -2,30 +2,19 @@ import os
 from glob import glob
 import cv2
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 from PIL import Image
-import matplotlib.image as mpimg
 
 from pkgs.kitti_utils import *
 from pkgs.kitti_detection_utils import *
 from pkgs.utils import *
 
 from heads.detection_head import *
-from calibration.cam_to_cam import *
-from calibration.lid_to_cam import *
-from calibration.imu_to_lid import *
+from pkgs.cam_to_cam import cam_transformation
+from pkgs.lid_to_cam import lid_transformation
+from pkgs.imu_to_lid import imu_transformation
 
 from BEV.bev import *
-
-from sklearn import linear_model
-from sklearn import linear_model
-from sklearn.cluster import DBSCAN
-
 from heads.detection_head import *
-
-
-import folium
 
 
 ###################################################################################
@@ -45,18 +34,20 @@ lid_paths = sorted(glob(os.path.join(DATA_PATH, 'velodyne_points/data/*.bin')))
 # print(f"Number of LiDAR point clouds: {len(lid_paths)}")
 # print(f"Number of GPS/IMU frames: {len(imu_paths)}")
 
-cam_calib_file = '/home/airl010/1_Thesis/deep-3d-visual-perception/dataset/2011_10_03_calib/calib_cam_to_cam.txt'
+cam_calib_file = '/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/calib_cam_to_cam.txt'
 P_rect2_cam2,R_ref0_rect2,T_ref0_ref2 = cam_transformation(cam_calib_file)
 
-lid_calib_file = '/home/airl010/1_Thesis/deep-3d-visual-perception/dataset/2011_10_03_calib/calib_velo_to_cam.txt'
+lid_calib_file = '/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/calib_velo_to_cam.txt'
 T_velo_ref0 = lid_transformation(lid_calib_file)
 
-imu_calib_file = '/home/airl010/1_Thesis/deep-3d-visual-perception/dataset/2011_10_03_calib/calib_imu_to_velo.txt'
+imu_calib_file = '/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/calib_imu_to_velo.txt'
 T_imu_velo = imu_transformation(imu_calib_file)
 
 
 # transform from velo (LiDAR) to left color camera (shape 3x4)
 T_velo_cam2 = P_rect2_cam2 @ R_ref0_rect2 @ T_ref0_ref2 @ T_velo_ref0 
+print(T_velo_cam2)
+# print(T_velo_cam2)
 # homogeneous transform from left color camera to velo (LiDAR) (shape: 4x4)
 T_cam2_velo = np.linalg.inv(np.insert(T_velo_cam2, 3, values=[0,0,0,1], axis=0)) 
 
@@ -72,7 +63,7 @@ model = detection_model()
 
 
 #################################################################################
-def main(save_vdeo=True):
+def main(save_vdeo=False):
 
     index = 3
 
@@ -82,10 +73,8 @@ def main(save_vdeo=True):
     bin_path = lid_paths[index]
     #oxts_frame = get_oxts(imu_paths[index])
 
-
     # get detections and object centers in uvz
     bboxes, velo_uvz = get_detection_coordinates(left_image, bin_path, model,T_velo_cam2, remove_plane=True)
-    Image.fromarray(left_image).show()
 
     # draw LiDAR points on a blank image or a copy of left_image
     lidar_proj_image = np.zeros_like(left_image)  # black background
@@ -99,10 +88,10 @@ def main(save_vdeo=True):
     # velo_image = draw_velo_on_image(velo_uvz, np.zeros_like(left_image))
     # Image.fromarray(velo_image).show()
 
-    uvz = bboxes[:, -3:]
-    #lidar co ordinate for detected obejcts 
-    canvas_out = draw_scenario(uvz,T_cam2_velo,line_draw=True)
-    Image.fromarray(canvas_out).show()
+    # uvz = bboxes[:, -3:]
+    # #lidar co ordinate for detected obejcts 
+    # canvas_out = draw_scenario(uvz,T_cam2_velo,line_draw=True)
+    # Image.fromarray(canvas_out).show()
 
     #lidar on image
     velo_on_image = draw_velo_on_image(velo_uvz, image_original)
@@ -121,6 +110,8 @@ def main(save_vdeo=True):
         for i in range(len(result_video)):
             out.write(cv2.cvtColor(result_video[i], cv2.COLOR_BGR2RGB))
         out.release()
+       
+    cv2.destroyAllWindows()
 
 ###################################################################################################################
 if __name__ == "__main__":
