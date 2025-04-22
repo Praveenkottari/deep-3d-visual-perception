@@ -3,9 +3,8 @@ cd ~/1_Thesis/visionNav/ros/fusion_ws
 ros2 run kitti_detection kitti_detection_node
 
 
-###
+### launching both ointcloude and camera images from kitti datset
 cd ~/1_Thesis/visionNav/ros/pc_ws
-
 ros2 run ros2_kitti_publishers kitti_publishers 
 
 

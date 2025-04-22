@@ -96,31 +96,31 @@ def main():
 
 
 
-            # detections = model(img_bgr)
+            detections = model(img_bgr)
 
-            # # Filter detections based on confidence and class indices
-            # desired_classes = [0, 1, 2, 3, 5, 7]  # Only person, bicycle, car, motorcycle, bus, truck
-            # confidence_threshold = 0.5
-            # filtered_boxes = []
-            # for box in detections[0].boxes.data.cpu().numpy():  # [x1, y1, x2, y2, confidence, class]
-            #     confidence, cls = box[4], int(box[5])
-            #     if confidence >= confidence_threshold and cls in desired_classes:
-            #         filtered_boxes.append(box)
+            # Filter detections based on confidence and class indices
+            desired_classes = [0, 1, 2, 3, 5, 7]  # Only person, bicycle, car, motorcycle, bus, truck
+            confidence_threshold = 0.5
+            filtered_boxes = []
+            for box in detections[0].boxes.data.cpu().numpy():  # [x1, y1, x2, y2, confidence, class]
+                confidence, cls = box[4], int(box[5])
+                if confidence >= confidence_threshold and cls in desired_classes:
+                    filtered_boxes.append(box)
             
-            # filtered_boxes = np.array(filtered_boxes)
+            filtered_boxes = np.array(filtered_boxes)
             
-            # # Draw boxes on the image
-            # if draw_boxes:
-            #     if len(filtered_boxes) > 0:
-            #         for box in filtered_boxes:
-            #             x1, y1, x2, y2, conf, cls = box
-            #             label = f"{model.names[int(cls)]} {conf:.2f}"
-            #             # Draw rectangle and label on the image
-            #             # image = cv2.rectangle(img_bgr, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 1)
-            #             image = cv2.putText(img_bgr, label, (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
+            # Draw boxes on the image
+            if draw_boxes:
+                if len(filtered_boxes) > 0:
+                    for box in filtered_boxes:
+                        x1, y1, x2, y2, conf, cls = box
+                        label = f"{model.names[int(cls)]} {conf:.2f}"
+                        # Draw rectangle and label on the image
+                        image = cv2.rectangle(img_bgr, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 1)
+                        image = cv2.putText(img_bgr, label, (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
         
-            #     else:
-            #         print("No detections met the criteria.")
+                else:
+                    print("No detections met the criteria.")
 
 
             calib = Calibration(configs.calib_path)
@@ -149,12 +149,10 @@ def main():
 
 
 
-
-
-            # uvz = bboxes[:, -3:]
-            # #lidar co ordinate for detected obejcts 
-            # canvas_out = draw_scenario(uvz,T_came2_velo,line_draw=True)
-            # cv2.imshow("dist",canvas_out)
+            uvz = bboxes[:, -3:]
+            #lidar co ordinate for detected obejcts 
+            canvas_out = draw_scenario(uvz,T_came2_velo,line_draw=True)
+            cv2.imshow("dist",canvas_out)
 
 
 
