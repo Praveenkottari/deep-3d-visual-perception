@@ -18,35 +18,36 @@ from heads.SFA3D.sfa.utils.visualization_utils import show_rgb_image_with_boxes
 from heads.SFA3D.sfa.data_process.kitti_data_utils import Calibration
 from heads.SFA3D.sfa.utils.demo_utils import parse_demo_configs, do_detect, write_credit
 
+
 # detection model 
 from pkgs.kitti_utils import *
 from pkgs.kitti_detection_utils import *
 from pkgs.utils import *
 
 from heads.detection_head import *
-
 from BEV.bev import *
 from heads.detection_head import *
 
 
 # detection model
-# model = detection_model()
+model = detection_model()
 
 def main():
     
     configs = parse_demo_configs()
 
-    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0047_sync/"
+    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0027_sync/"
 
     model3d = create_model(configs)
-    print('\n\n' + '-*' * 60 + '\n\n')
+    print('\n\n' + '*' * 60 + '\n\n')
     assert os.path.isfile(configs.pretrained_path), "No file at {}".format(configs.pretrained_path)
     model3d.load_state_dict(torch.load(configs.pretrained_path, map_location='cpu'))
     print('Loaded weights from {}\n'.format(configs.pretrained_path))
 
-    # Updated line
+    #Assign process to the CPU
     configs.device = torch.device('cpu' if configs.no_cuda or configs.gpu_idx == -1 else 'cuda:{}'.format(configs.gpu_idx))
     # configs.device = torch.device('cpu' if configs.no_cuda else 'cuda:{}'.format(configs.gpu_idx))
+
     model3d = model3d.to(device=configs.device)
     model3d.eval()
 
@@ -62,53 +63,62 @@ def main():
             front_detections, front_bevmap, fps = do_detect(configs, model3d, front_bevmap, is_front=True)
             back_detections, back_bevmap, _ = do_detect(configs, model3d, back_bevmap, is_front=False)
 
-            # Draw prediction in the image
+            # Draw prediction in the top view lidar image
             front_bevmap = (front_bevmap.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
             front_bevmap = cv2.resize(front_bevmap, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT))
             front_bevmap = draw_predictions(front_bevmap, front_detections, configs.num_classes)
-            # Rotate the front_bevmap
-            front_bevmap = cv2.rotate(front_bevmap, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-            # Draw prediction in the image
+            # Draw prediction in the topview of lidar image
             back_bevmap = (back_bevmap.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
             back_bevmap = cv2.resize(back_bevmap, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT))
             back_bevmap = draw_predictions(back_bevmap, back_detections, configs.num_classes)
+
+            # Rotate the front_bevmap
+            front_bevmap = cv2.rotate(front_bevmap, cv2.ROTATE_90_COUNTERCLOCKWISE) 
+            # cv2.imshow("fron_bev",front_bevmap)           
             # Rotate the back_bevmap
             back_bevmap = cv2.rotate(back_bevmap, cv2.ROTATE_90_CLOCKWISE)
-
-            # merge front and back bevmap
+            # cv2.imshow("back_bev",back_bevmap)           
+            # merge front and back bevmap to get full top lidar view with detection and boudning box
             full_bev = np.concatenate((back_bevmap, front_bevmap), axis=1)
+            # cv2.imshow("full_bev",full_bev)   
 
-            img_path = metadatas['img_path'][0]
+            #RGB raw Image from the dataset
             img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
-            cv2.imshow("img_bgr", img_bgr)
+            # cv2.imshow("img_bgr", img_bgr)
 
 
-            # detections = model(img_bgr)
 
-            # # Filter detections based on confidence and class indices
-            # desired_classes = [0, 1, 2, 3, 5, 7]  # Only person, bicycle, car, motorcycle, bus, truck
-            # confidence_threshold = 0.5
-            # filtered_boxes = []
-            # for box in detections[0].boxes.data.cpu().numpy():  # [x1, y1, x2, y2, confidence, class]
-            #     confidence, cls = box[4], int(box[5])
-            #     if confidence >= confidence_threshold and cls in desired_classes:
-            #         filtered_boxes.append(box)
+
+
+            detections = model(img_bgr)
+            # Filter detections based on confidence and class indices
+            desired_classes = [0, 1, 2, 3, 5, 7]  # Only person, bicycle, car, motorcycle, bus, truck
+            confidence_threshold = 0.5
+            filtered_boxes = []
+            for box in detections[0].boxes.data.cpu().numpy():  # [x1, y1, x2, y2, confidence, class]
+                confidence, cls = box[4], int(box[5])
+                if confidence >= confidence_threshold and cls in desired_classes:
+                    filtered_boxes.append(box)
             
-            # filtered_boxes = np.array(filtered_boxes)
+            filtered_boxes = np.array(filtered_boxes)
+
             
-            # # Draw boxes on the image
-            # if draw_boxes:
-            #     if len(filtered_boxes) > 0:
-            #         for box in filtered_boxes:
-            #             x1, y1, x2, y2, conf, cls = box
-            #             label = f"{model.names[int(cls)]} {conf:.2f}"
-            #             # Draw rectangle and label on the image
-            #             # image = cv2.rectangle(img_bgr, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 1)
-            #             image = cv2.putText(img_bgr, label, (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
+            # Draw boxes on the image
+            if draw_boxes:
+                if len(filtered_boxes) > 0:
+                    for box in filtered_boxes:
+                        x1, y1, x2, y2, conf, cls = box
+                        label = f"{model.names[int(cls)]} {conf:.2f}"
+                        # Draw rectangle and label on the image
+                        # image = cv2.rectangle(img_bgr, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 1)
+                        image = cv2.putText(img_bgr, label, (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
         
-            #     else:
-            #         print("No detections met the criteria.")
+                else:
+                    print("No detections met the criteria.")
+            
+
+
 
 
             calib = Calibration(configs.calib_path)
