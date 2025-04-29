@@ -27,7 +27,6 @@ from pkgs.utils import *
 
 from heads.detection_head import *
 from BEV.bev import *
-from heads.detection_head import *
 
 
 T_velo_cam2 = np.array([
@@ -37,14 +36,13 @@ T_velo_cam2 = np.array([
 ], dtype=np.float32)   # (3, 4)
 
 
-
 def project_lid2uvz(lidar_xyz, T_uvz_velo, image, remove_plane=False):
     ''' Projects LiDAR point cloud onto the image coordinate frame (u, v, z)
         '''
-
     if remove_plane:
-        lidar_xyz = lidar_xyz.T
-        lidar_xyz = lidar_xyz[:,0:3]
+        # lidar_xyz = lidar_xyz.T
+        # lidar_xyz = lidar_xyz[:,0:3]
+        lidar_xyz  =lidar_xyz[:3,:].T
         lidar_xyz = np.delete(lidar_xyz, np.where(lidar_xyz[3, :] < 0), axis=1)
 
         ransac = linear_model.RANSACRegressor(
@@ -67,7 +65,6 @@ def project_lid2uvz(lidar_xyz, T_uvz_velo, image, remove_plane=False):
 
     # project velo (x, z, y, w) onto camera (u, v, z) coordinates
     velo_uvz = xyzw2camera(lidar_xyz, T_uvz_velo, image, remove_outliers=True)
-    
     return velo_uvz
 
 
@@ -75,23 +72,15 @@ def lidar_points(img_rgb, lidar_xyz, T_velo_cam2,remove_plane):
 
     # Project LiDAR points to camera space
     velo_uvz = project_lid2uvz(lidar_xyz, T_velo_cam2, img_rgb, remove_plane=remove_plane)
-
     return velo_uvz
 
 
 
 
-
-def main():
-    
-    
+def main(): 
     configs = parse_demo_configs()
-    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0027_sync/"
+    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0047_sync/"
     calib = Calibration(configs.calib_path)
-
-
-
-
 
     model3d = create_model(configs)
     print('\n\n' + '*' * 60 + '\n\n')
@@ -110,7 +99,6 @@ def main():
     demo_dataset = Demo_KittiDataset(configs)
 
 
-    draw_boxes =False
     with torch.no_grad():
         for sample_idx in range(len(demo_dataset)):
             
@@ -125,18 +113,14 @@ def main():
 
             # get detections and object centers in uvz
             velo_uvz = lidar_points(img_bgr, lidar_xyz, T_velo_cam2,remove_plane=True)
-            
+
             #lidar projection on rgb
-            lidar_proj_image = draw_velo_on_image(velo_uvz, img_bgr)
-
-
-
-
+            lidar_proj_image = draw_velo_on_image(velo_uvz, img_bgr,draw_lidar = True)
 
 
 
             # print(metadatas['lidarData'])
-            front_detections, front_bevmap, fps = do_detect(configs, model3d, front_bevmap, is_front=True)
+            front_detections, front_bevmap, _ = do_detect(configs, model3d, front_bevmap, is_front=True)
             back_detections, back_bevmap, _ = do_detect(configs, model3d, back_bevmap, is_front=False)
 
             # Draw prediction in the top view lidar image
@@ -158,46 +142,14 @@ def main():
             # merge front and back bevmap to get full top lidar view with detection and boudning box
             full_bev = np.concatenate((back_bevmap, front_bevmap), axis=1)
             # cv2.imshow("full_bev",full_bev)   
-
           
-            # cv2.imshow("img_bgr", img_bgr)
-
-
-
-
-            # detections = model(img_bgr)
-            # # Filter detections based on confidence and class indices
-            # desired_classes = [0, 1, 2, 3, 5, 7]  # Only person, bicycle, car, motorcycle, bus, truck
-            # confidence_threshold = 0.5
-            # filtered_boxes = []
-            # for box in detections[0].boxes.data.cpu().numpy():  # [x1, y1, x2, y2, confidence, class]
-            #     confidence, cls = box[4], int(box[5])
-            #     if confidence >= confidence_threshold and cls in desired_classes:
-            #         filtered_boxes.append(box)
-            
-            # filtered_boxes = np.array(filtered_boxes)
-
-            
-            # # Draw boxes on the image
-            # if draw_boxes:
-            #     if len(filtered_boxes) > 0:
-            #         for box in filtered_boxes:
-            #             x1, y1, x2, y2, conf, cls = box
-            #             label = f"{model.names[int(cls)]} {conf:.2f}"
-            #             # Draw rectangle and label on the image
-            #             # image = cv2.rectangle(img_bgr, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 1)
-            #             image = cv2.putText(img_bgr, label, (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
-        
-            #     else:
-            #         print("No detections met the criteria.")
-            
-
-            
         
             kitti_dets = convert_det_to_real_values(front_detections)
 
             if len(kitti_dets) > 0:
                 kitti_dets[:, 1:] = lidar_to_camera_box(kitti_dets[:, 1:], calib.V2C, calib.R0, calib.P2)
+                img_bgr = show_rgb_image_with_boxes(img_bgr, kitti_dets, calib)
+
               
 
             out_img = np.concatenate((img_bgr, full_bev), axis=0)
@@ -214,7 +166,7 @@ def main():
             #out_cap.write(out_img)
 
             # DISPLAY IN REAL TIME
-            cv2.imshow("Demo", lidar_proj_image)
+            cv2.imshow("Demo", out_img)
             key = cv2.waitKey(1) & 0xFF
             # If you want to stop early by pressing 'q'
             if key == ord('q'):
