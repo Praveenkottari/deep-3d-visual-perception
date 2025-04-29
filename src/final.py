@@ -15,6 +15,7 @@ from heads.SFA3D.sfa.utils.evaluation_utils import draw_predictions, convert_det
 import heads.SFA3D.sfa.config.kitti_config as cnf
 from heads.SFA3D.sfa.data_process.transformation import lidar_to_camera_box
 from heads.SFA3D.sfa.utils.visualization_utils import show_rgb_image_with_boxes
+
 from heads.SFA3D.sfa.data_process.kitti_data_utils import Calibration
 from heads.SFA3D.sfa.utils.demo_utils import parse_demo_configs, do_detect, write_credit
 
@@ -29,8 +30,21 @@ from BEV.bev import *
 from heads.detection_head import *
 
 
-# detection model
-model = detection_model()
+                   # metres
+
+def draw_depth_labels(img_bgr: np.ndarray,
+                      boxes_2d: np.ndarray,
+                      depths: np.ndarray,
+                      color=(0, 255, 255)) -> np.ndarray:
+    for (x1, y1, x2, y2), d in zip(boxes_2d, depths):
+        txt = "--" if np.isinf(d) else f"{d:4.1f} m"
+        cv2.putText(img_bgr, txt,
+                    (int(x1), int(y1) - 6),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2, cv2.LINE_AA)
+    return img_bgr
+
+
+
 
 def main():
     
@@ -60,6 +74,12 @@ def main():
         for sample_idx in range(len(demo_dataset)):
             
             metadatas, front_bevmap, back_bevmap, img_rgb = demo_dataset.load_bevmap_front_vs_back(sample_idx)
+            lidar_xyz = metadatas['lidarData'][:, :3]          # drop reflectance
+
+                        # kitti_dets produced exactly as before
+
+
+            # print(metadatas['lidarData'])
             front_detections, front_bevmap, fps = do_detect(configs, model3d, front_bevmap, is_front=True)
             back_detections, back_bevmap, _ = do_detect(configs, model3d, back_bevmap, is_front=False)
 
@@ -91,31 +111,32 @@ def main():
 
 
 
-            detections = model(img_bgr)
-            # Filter detections based on confidence and class indices
-            desired_classes = [0, 1, 2, 3, 5, 7]  # Only person, bicycle, car, motorcycle, bus, truck
-            confidence_threshold = 0.5
-            filtered_boxes = []
-            for box in detections[0].boxes.data.cpu().numpy():  # [x1, y1, x2, y2, confidence, class]
-                confidence, cls = box[4], int(box[5])
-                if confidence >= confidence_threshold and cls in desired_classes:
-                    filtered_boxes.append(box)
+
+            # detections = model(img_bgr)
+            # # Filter detections based on confidence and class indices
+            # desired_classes = [0, 1, 2, 3, 5, 7]  # Only person, bicycle, car, motorcycle, bus, truck
+            # confidence_threshold = 0.5
+            # filtered_boxes = []
+            # for box in detections[0].boxes.data.cpu().numpy():  # [x1, y1, x2, y2, confidence, class]
+            #     confidence, cls = box[4], int(box[5])
+            #     if confidence >= confidence_threshold and cls in desired_classes:
+            #         filtered_boxes.append(box)
             
-            filtered_boxes = np.array(filtered_boxes)
+            # filtered_boxes = np.array(filtered_boxes)
 
             
-            # Draw boxes on the image
-            if draw_boxes:
-                if len(filtered_boxes) > 0:
-                    for box in filtered_boxes:
-                        x1, y1, x2, y2, conf, cls = box
-                        label = f"{model.names[int(cls)]} {conf:.2f}"
-                        # Draw rectangle and label on the image
-                        # image = cv2.rectangle(img_bgr, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 1)
-                        image = cv2.putText(img_bgr, label, (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
+            # # Draw boxes on the image
+            # if draw_boxes:
+            #     if len(filtered_boxes) > 0:
+            #         for box in filtered_boxes:
+            #             x1, y1, x2, y2, conf, cls = box
+            #             label = f"{model.names[int(cls)]} {conf:.2f}"
+            #             # Draw rectangle and label on the image
+            #             # image = cv2.rectangle(img_bgr, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 1)
+            #             image = cv2.putText(img_bgr, label, (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
         
-                else:
-                    print("No detections met the criteria.")
+            #     else:
+            #         print("No detections met the criteria.")
             
 
 
@@ -123,13 +144,16 @@ def main():
 
             calib = Calibration(configs.calib_path)
             kitti_dets = convert_det_to_real_values(front_detections)
+
             if len(kitti_dets) > 0:
                 kitti_dets[:, 1:] = lidar_to_camera_box(kitti_dets[:, 1:], calib.V2C, calib.R0, calib.P2)
-                img_bgr = show_rgb_image_with_boxes(img_bgr, kitti_dets, calib)
             img_bgr = cv2.resize(img_bgr, (cnf.BEV_WIDTH * 2, 375))
             
+        
+
+
             out_img = np.concatenate((img_bgr, full_bev), axis=0)
-            cv2.putText(out_img, 'Speed: {:.1f} FPS'.format(fps), org=(900, 400), fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1,  color = (255, 255, 255), thickness = 2)
+            # cv2.putText(out_img, 'Speed: {:.1f} FPS'.format(fps), org=(900, 400), fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1,  color = (255, 255, 255), thickness = 2)
 
             # # Create the video writer if not already created
             # if out_cap is None:
