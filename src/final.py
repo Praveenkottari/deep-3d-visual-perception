@@ -30,27 +30,68 @@ from BEV.bev import *
 from heads.detection_head import *
 
 
-                   # metres
+T_velo_cam2 = np.array([
+    [ 607.48      , -718.54      ,  -10.188    ,  -95.573   ],
+    [ 180.03      ,    5.8992    , -720.15     ,  -93.457   ],
+    [   0.99997   ,    0.00048595,   -0.0072069,   -0.28464 ]
+], dtype=np.float32)   # (3, 4)
 
-def draw_depth_labels(img_bgr: np.ndarray,
-                      boxes_2d: np.ndarray,
-                      depths: np.ndarray,
-                      color=(0, 255, 255)) -> np.ndarray:
-    for (x1, y1, x2, y2), d in zip(boxes_2d, depths):
-        txt = "--" if np.isinf(d) else f"{d:4.1f} m"
-        cv2.putText(img_bgr, txt,
-                    (int(x1), int(y1) - 6),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2, cv2.LINE_AA)
-    return img_bgr
+
+
+def project_lid2uvz(lidar_xyz, T_uvz_velo, image, remove_plane=False):
+    ''' Projects LiDAR point cloud onto the image coordinate frame (u, v, z)
+        '''
+
+    if remove_plane:
+        lidar_xyz = lidar_xyz.T
+        lidar_xyz = lidar_xyz[:,0:3]
+        lidar_xyz = np.delete(lidar_xyz, np.where(lidar_xyz[3, :] < 0), axis=1)
+
+        ransac = linear_model.RANSACRegressor(
+                                linear_model.LinearRegression(),
+                                residual_threshold=0.1,
+                                max_trials=5000
+                                )
+
+        X = lidar_xyz[:, :2]
+        y = lidar_xyz[:, -1]
+        ransac.fit(X, y)
+        
+        # remove outlier points (i.e. remove ground plane)
+        mask = ransac.inlier_mask_
+        xyz = lidar_xyz[~mask]
+
+        lidar_xyz = np.insert(xyz, 3, 1, axis=1).T 
+    else:
+        lidar_xyz =lidar_xyz
+
+    # project velo (x, z, y, w) onto camera (u, v, z) coordinates
+    velo_uvz = xyzw2camera(lidar_xyz, T_uvz_velo, image, remove_outliers=True)
+    
+    return velo_uvz
+
+
+def lidar_points(img_rgb, lidar_xyz, T_velo_cam2,remove_plane):
+
+    # Project LiDAR points to camera space
+    velo_uvz = project_lid2uvz(lidar_xyz, T_velo_cam2, img_rgb, remove_plane=remove_plane)
+
+    return velo_uvz
+
 
 
 
 
 def main():
     
+    
     configs = parse_demo_configs()
-
     configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0027_sync/"
+    calib = Calibration(configs.calib_path)
+
+
+
+
 
     model3d = create_model(configs)
     print('\n\n' + '*' * 60 + '\n\n')
@@ -74,9 +115,24 @@ def main():
         for sample_idx in range(len(demo_dataset)):
             
             metadatas, front_bevmap, back_bevmap, img_rgb = demo_dataset.load_bevmap_front_vs_back(sample_idx)
-            lidar_xyz = metadatas['lidarData'][:, :3]          # drop reflectance
+            lidar_xyz = metadatas['lidarData'][:, :4]          # drop reflectance
+            lidar_xyz = lidar_xyz.T
 
-                        # kitti_dets produced exactly as before
+              #RGB raw Image from the dataset
+            img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+            img_bgr = cv2.resize(img_bgr, (cnf.BEV_WIDTH * 2, 375))  
+            
+
+            # get detections and object centers in uvz
+            velo_uvz = lidar_points(img_bgr, lidar_xyz, T_velo_cam2,remove_plane=True)
+            
+            #lidar projection on rgb
+            lidar_proj_image = draw_velo_on_image(velo_uvz, img_bgr)
+
+
+
+
+
 
 
             # print(metadatas['lidarData'])
@@ -103,11 +159,8 @@ def main():
             full_bev = np.concatenate((back_bevmap, front_bevmap), axis=1)
             # cv2.imshow("full_bev",full_bev)   
 
-            #RGB raw Image from the dataset
-            img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+          
             # cv2.imshow("img_bgr", img_bgr)
-
-
 
 
 
@@ -139,18 +192,13 @@ def main():
             #         print("No detections met the criteria.")
             
 
-
-
-
-            calib = Calibration(configs.calib_path)
+            
+        
             kitti_dets = convert_det_to_real_values(front_detections)
 
             if len(kitti_dets) > 0:
                 kitti_dets[:, 1:] = lidar_to_camera_box(kitti_dets[:, 1:], calib.V2C, calib.R0, calib.P2)
-            img_bgr = cv2.resize(img_bgr, (cnf.BEV_WIDTH * 2, 375))
-            
-        
-
+              
 
             out_img = np.concatenate((img_bgr, full_bev), axis=0)
             # cv2.putText(out_img, 'Speed: {:.1f} FPS'.format(fps), org=(900, 400), fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1,  color = (255, 255, 255), thickness = 2)
@@ -166,7 +214,7 @@ def main():
             #out_cap.write(out_img)
 
             # DISPLAY IN REAL TIME
-            cv2.imshow("Demo", out_img)
+            cv2.imshow("Demo", lidar_proj_image)
             key = cv2.waitKey(1) & 0xFF
             # If you want to stop early by pressing 'q'
             if key == ord('q'):

@@ -58,7 +58,7 @@ def bin2xyzw(bin_path, remove_plane=False):
 
     # get x,y,z LiDAR points (x, y, z) --> (front, left, up)
     xyz = scan_data[:, 0:3] 
-
+    print(xyz.shape)
     # delete negative liDAR points
     xyz = np.delete(xyz, np.where(xyz[3, :] < 0), axis=1)
 
@@ -196,7 +196,6 @@ def project_velobin2uvz(bin_path, T_uvz_velo, image, remove_plane=True):
 
     # get homogeneous LiDAR points from bin file
     xyzw = bin2xyzw(bin_path, remove_plane)
-
     # project velo (x, z, y, w) onto camera (u, v, z) coordinates
     velo_uvz = xyzw2camera(xyzw, T_uvz_velo, image, remove_outliers=True)
     

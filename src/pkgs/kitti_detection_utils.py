@@ -82,7 +82,9 @@ def get_detection_coordinates(image, bin_path, model,T_velo_cam2,remove_plane=Tr
     - LiDAR/velo (xyz)
     - GPS/IMU  (xyz)
     """
-    # Perform detection
+
+   
+# Perform detection
     detections = model(image)
     
     # Filter detections based on confidence and class indices
@@ -108,7 +110,7 @@ def get_detection_coordinates(image, bin_path, model,T_velo_cam2,remove_plane=Tr
             
             # image_2dbox = Image.fromarray(image)
             # image_2dbox.show()  
-  
+
         else:
             print("No detections met the criteria.")
     
