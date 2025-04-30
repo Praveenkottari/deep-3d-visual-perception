@@ -29,6 +29,7 @@ from heads.detection_head import *
 from BEV.bev import *
 
 
+
 T_velo_cam2 = np.array([
     [ 607.48      , -718.54      ,  -10.188    ,  -95.573   ],
     [ 180.03      ,    5.8992    , -720.15     ,  -93.457   ],
@@ -150,7 +151,6 @@ def main():
                 kitti_dets[:, 1:] = lidar_to_camera_box(kitti_dets[:, 1:], calib.V2C, calib.R0, calib.P2)
                 img_bgr = show_rgb_image_with_boxes(img_bgr, kitti_dets, calib)
 
-              
 
             out_img = np.concatenate((img_bgr, full_bev), axis=0)
             # cv2.putText(out_img, 'Speed: {:.1f} FPS'.format(fps), org=(900, 400), fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1,  color = (255, 255, 255), thickness = 2)

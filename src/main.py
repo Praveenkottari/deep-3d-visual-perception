@@ -74,20 +74,25 @@ def main(save_vdeo=False):
     #oxts_frame = get_oxts(imu_paths[index])
 
     # get detections and object centers in uvz
-    bboxes, velo_uvz = get_detection_coordinates(left_image, bin_path, model,T_velo_cam2, remove_plane=True)
+    bboxes, velo_uvz = get_detection_coordinates(left_image, bin_path, model,T_velo_cam2, remove_plane=False)
 
     # print(T_velo_cam2)
     # draw LiDAR points on a blank image or a copy of left_image
     lidar_proj_image = np.zeros_like(left_image)  # black background
     lidar_proj_image = draw_velo_on_image(velo_uvz, lidar_proj_image)
 
-    # #Draw bounding boxes onto the LiDAR-projected image
-    lidar_proj_image_with_bboxes = draw_bboxes_on_lidar_image(lidar_proj_image.copy(), bboxes)
-    Image.fromarray(lidar_proj_image_with_bboxes).show()
 
-    #lidar points in the frame
-    velo_image = draw_velo_on_image(velo_uvz, np.zeros_like(left_image))
-    Image.fromarray(velo_image).show()
+
+    # 2) Draw bounding boxes from YOLO onto the LiDAR-projected image
+    lidar_proj_image_with_bboxes = draw_bboxes_on_lidar_image(lidar_proj_image.copy(), bboxes)
+    
+    # # #Draw bounding boxes onto the LiDAR-projected image
+    # lidar_proj_image_with_bboxes = draw_bboxes_on_lidar_image(lidar_proj_image.copy(), bboxes)
+    # Image.fromarray(lidar_proj_image_with_bboxes).show()
+
+    # #lidar points in the frame
+    # velo_image = draw_velo_on_image(velo_uvz, np.zeros_like(left_image))
+    # Image.fromarray(velo_image).show()
 
     uvz = bboxes[:, -3:]
     #lidar co ordinate for detected obejcts 

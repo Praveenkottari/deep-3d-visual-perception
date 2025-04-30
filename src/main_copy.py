@@ -19,7 +19,6 @@ from ..calibration.imu_to_lid import imu_transformation
 from BEV.bev import *
 
 from sklearn import linear_model
-from sklearn import linear_model
 from sklearn.cluster import DBSCAN
 
 from heads.detection_head import *
