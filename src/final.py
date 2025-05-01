@@ -28,6 +28,63 @@ from pkgs.utils import *
 from heads.detection_head import *
 from BEV.bev import *
 
+def velo_to_image(pts_velo, calib):
+    """
+    pts_velo : (N,3)   xyz in Velodyne frame
+    returns   : (N,2)   pixel coordinates in the RGB image
+    """
+    pts_velo_h = np.c_[pts_velo, np.ones(pts_velo.shape[0])]      # (N,4)
+    pts_cam    = calib.V2C @ pts_velo_h.T                         # (3,N)
+    pts_rect   = calib.R0 @ pts_cam                               # (3,N)
+    pts_img_h  = calib.P2 @ np.vstack([pts_rect, np.ones((1,pts_rect.shape[1]))])
+    pts_img_h[:2] /= pts_img_h[2:]
+    return pts_img_h[:2].T                                        # (N,2)
+
+def annotate_depths_3d(image, dets_velo, calib,
+                       use_euclidean=True, draw=True):
+    """
+    Parameters
+    ----------
+    image       :   BGR image to annotate (will be modified in-place)
+    dets_velo   :   (N,8/9/10) 3-D detections in Velodyne frame
+                    [cls, x, y, z, h, w, l, yaw, ...]
+    calib       :   kitti_data_utils.Calibration object
+    use_euclidean : if True, depth = sqrt(x²+y²+z²); else forward x only
+    draw        :   whether to overlay the text on the image
+
+    Returns
+    -------
+    image_out   :   annotated image (same object if draw=True)
+    dets_out    :   (N, dets_velo.shape[1]+1) with extra depth column
+                    appended at the end
+    """
+    N          = dets_velo.shape[0]
+    dets_out   = np.zeros((N, dets_velo.shape[1] + 1))
+    dets_out[:, :dets_velo.shape[1]] = dets_velo
+
+    # ---- compute centres in pixels once -----------------------
+    centres_velo = dets_velo[:, 1:4]                               # (N,3)
+    centres_img  = velo_to_image(centres_velo, calib)              # (N,2)
+
+    for i, (x_v, y_v, z_v) in enumerate(centres_velo):
+        depth = (x_v if not use_euclidean
+                 else np.linalg.norm([x_v, y_v, z_v]))
+        dets_out[i, -1] = depth                                    # write depth
+
+        if draw:
+            u, v = int(round(centres_img[i, 0])), int(round(centres_img[i, 1]))
+            if 0 <= u < image.shape[1] and 0 <= v < image.shape[0]:
+                cv2.putText(image,
+                            f"{depth:.1f} m",
+                            (u, v-5),                        # a tad above centre
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.6,
+                            (0, 0, 255),
+                            2,
+                            cv2.LINE_AA)
+
+    return image, dets_out
+# --------------------------------------------------------------
 
 
 T_velo_cam2 = np.array([
@@ -77,10 +134,9 @@ def lidar_points(img_rgb, lidar_xyz, T_velo_cam2,remove_plane):
 
 
 
-
 def main(): 
     configs = parse_demo_configs()
-    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0047_sync/"
+    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0027_sync/"
     calib = Calibration(configs.calib_path)
 
     model3d = create_model(configs)
@@ -114,15 +170,30 @@ def main():
 
             # get detections and object centers in uvz
             velo_uvz = lidar_points(img_bgr, lidar_xyz, T_velo_cam2,remove_plane=True)
+            
 
             #lidar projection on rgb
-            lidar_proj_image = draw_velo_on_image(velo_uvz, img_bgr,draw_lidar = True)
+            lidar_proj_image = draw_velo_on_image(velo_uvz, img_bgr,draw_lidar = False)
 
 
 
             # print(metadatas['lidarData'])
             front_detections, front_bevmap, _ = do_detect(configs, model3d, front_bevmap, is_front=True)
             back_detections, back_bevmap, _ = do_detect(configs, model3d, back_bevmap, is_front=False)
+
+
+            # # after you already have front_detections & back_detections
+            # front_real = convert_det_to_real_values(front_detections)
+            # back_real  = convert_det_to_real_values(back_detections)
+            # dets_velo  = np.vstack([front_real, back_real])          # (N,10)
+
+            # img_bgr, dets_with_depth = annotate_depths_3d(
+            #         img_bgr, dets_velo, calib,
+            #         use_euclidean=True,         # or False for forward range only
+            #         draw=True)
+
+
+
 
             # Draw prediction in the top view lidar image
             front_bevmap = (front_bevmap.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
@@ -146,10 +217,44 @@ def main():
           
         
             kitti_dets = convert_det_to_real_values(front_detections)
+        # ─── NEW multi-view collection + depth annotation ───────────────
+            dets_list = []
+            for dets in (front_detections, back_detections):
+                if dets is None or len(dets) == 0:
+                    continue
 
-            if len(kitti_dets) > 0:
-                kitti_dets[:, 1:] = lidar_to_camera_box(kitti_dets[:, 1:], calib.V2C, calib.R0, calib.P2)
-                img_bgr = show_rgb_image_with_boxes(img_bgr, kitti_dets, calib)
+                real = convert_det_to_real_values(dets)
+                if isinstance(real, torch.Tensor):          # just in case
+                    real = real.cpu().numpy()
+
+                if real.size > 0:
+                    dets_list.append(real)
+
+            if dets_list:                                   # at least one view detected
+                dets_velo = np.vstack(dets_list)            # (N,8-10)
+                if len(kitti_dets) > 0:
+                    kitti_dets[:, 1:] = lidar_to_camera_box(kitti_dets[:, 1:], calib.V2C, calib.R0, calib.P2)
+                    img_bgr = show_rgb_image_with_boxes(img_bgr, kitti_dets, calib)
+
+                img_bgr, dets_with_depth = annotate_depths_3d(
+                    img_bgr,
+                    dets_velo,
+                    calib,
+                    use_euclidean=True,    # forward-range? set False if you wish
+                    draw=True)
+# ────────────────────────────────────
+
+
+
+
+
+
+            # kitti_dets = convert_det_to_real_values(front_detections)
+
+            # if len(kitti_dets) > 0:
+            #     kitti_dets[:, 1:] = lidar_to_camera_box(kitti_dets[:, 1:], calib.V2C, calib.R0, calib.P2)
+            #     img_bgr = show_rgb_image_with_boxes(img_bgr, kitti_dets, calib)
+
 
 
             out_img = np.concatenate((img_bgr, full_bev), axis=0)

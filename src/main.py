@@ -85,14 +85,14 @@ def main(save_vdeo=False):
 
     # 2) Draw bounding boxes from YOLO onto the LiDAR-projected image
     lidar_proj_image_with_bboxes = draw_bboxes_on_lidar_image(lidar_proj_image.copy(), bboxes)
-    
+
     # # #Draw bounding boxes onto the LiDAR-projected image
-    # lidar_proj_image_with_bboxes = draw_bboxes_on_lidar_image(lidar_proj_image.copy(), bboxes)
-    # Image.fromarray(lidar_proj_image_with_bboxes).show()
+    lidar_proj_image_with_bboxes = draw_bboxes_on_lidar_image(lidar_proj_image.copy(), bboxes)
+    Image.fromarray(lidar_proj_image_with_bboxes).show()
 
     # #lidar points in the frame
-    # velo_image = draw_velo_on_image(velo_uvz, np.zeros_like(left_image))
-    # Image.fromarray(velo_image).show()
+    velo_image = draw_velo_on_image(velo_uvz, np.zeros_like(left_image))
+    Image.fromarray(velo_image).show()
 
     uvz = bboxes[:, -3:]
     #lidar co ordinate for detected obejcts 
