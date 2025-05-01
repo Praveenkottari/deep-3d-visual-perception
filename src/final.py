@@ -217,32 +217,37 @@ def main():
           
         
             kitti_dets = convert_det_to_real_values(front_detections)
-        # ─── NEW multi-view collection + depth annotation ───────────────
-            dets_list = []
-            for dets in (front_detections, back_detections):
-                if dets is None or len(dets) == 0:
-                    continue
+            # ─── FRONT-VIEW ONLY: draw 3-D boxes + depth labels ─────────────
+            # 1. skip early if nothing detected
+            if front_detections is not None and len(front_detections) > 0:
 
-                real = convert_det_to_real_values(dets)
-                if isinstance(real, torch.Tensor):          # just in case
-                    real = real.cpu().numpy()
+                # 2. convert network output to metric Velodyne frame
+                front_real = convert_det_to_real_values(front_detections)
+                if isinstance(front_real, torch.Tensor):
+                    front_real = front_real.cpu().numpy()
 
-                if real.size > 0:
-                    dets_list.append(real)
+                # ---- optional confidence filter ---------------------------
+                # keep only rows whose score (> last column) exceeds 0.35
+                # front_real = front_real[front_real[:, -1] > 0.35]
+                # -----------------------------------------------------------
 
-            if dets_list:                                   # at least one view detected
-                dets_velo = np.vstack(dets_list)            # (N,8-10)
-                if len(kitti_dets) > 0:
-                    kitti_dets[:, 1:] = lidar_to_camera_box(kitti_dets[:, 1:], calib.V2C, calib.R0, calib.P2)
-                    img_bgr = show_rgb_image_with_boxes(img_bgr, kitti_dets, calib)
+                if front_real.size > 0:
+                    # 3-a.  draw 3-D wireframes (need camera-frame corners)
+                    front_cam = front_real.copy()
+                    front_cam[:, 1:] = lidar_to_camera_box(
+                        front_cam[:, 1:], calib.V2C, calib.R0, calib.P2)
 
-                img_bgr, dets_with_depth = annotate_depths_3d(
-                    img_bgr,
-                    dets_velo,
-                    calib,
-                    use_euclidean=True,    # forward-range? set False if you wish
-                    draw=True)
-# ────────────────────────────────────
+                    img_bgr = show_rgb_image_with_boxes(img_bgr, front_cam, calib)
+
+                    # 3-b.  add depth text at each box centre
+                    img_bgr, front_with_depth = annotate_depths_3d(
+                        img_bgr,
+                        front_real,      # still in Velodyne coords
+                        calib,
+                        use_euclidean=True,   # forward-range? set False if you prefer
+                        draw=True)
+            # ────────────────────────────────────────────────────────────────
+
 
 
 
