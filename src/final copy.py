@@ -40,162 +40,51 @@ def velo_to_image(pts_velo, calib):
     pts_img_h[:2] /= pts_img_h[2:]
     return pts_img_h[:2].T                                        # (N,2)
 
-# def annotate_depths_3d_center(image, dets_velo, calib,
-#                        use_euclidean=True, draw=True):
-#     """
-#     Parameters
-#     ----------
-#     image       :   BGR image to annotate (will be modified in-place)
-#     dets_velo   :   (N,8/9/10) 3-D detections in Velodyne frame
-#                     [cls, x, y, z, h, w, l, yaw, ...]
-#     calib       :   kitti_data_utils.Calibration object
-#     use_euclidean : if True, depth = sqrt(x²+y²+z²); else forward x only
-#     draw        :   whether to overlay the text on the image
-
-#     Returns
-#     -------
-#     image_out   :   annotated image (same object if draw=True)
-#     dets_out    :   (N, dets_velo.shape[1]+1) with extra depth column
-#                     appended at the end
-#     """
-#     N          = dets_velo.shape[0]
-#     dets_out   = np.zeros((N, dets_velo.shape[1] + 1))
-#     dets_out[:, :dets_velo.shape[1]] = dets_velo
-
-#     # ---- compute centres in pixels once -----------------------
-#     centres_velo = dets_velo[:, 1:4]                               # (N,3)
-#     centres_img  = velo_to_image(centres_velo, calib)              # (N,2)
-
-#     for i, (x_v, y_v, z_v) in enumerate(centres_velo):
-#         depth = (x_v if not use_euclidean
-#                  else np.linalg.norm([x_v, y_v, z_v]))
-#         dets_out[i, -1] = depth                                    # write depth
-
-#         if draw:
-#             u, v = int(round(centres_img[i, 0])), int(round(centres_img[i, 1]))
-#             if 0 <= u < image.shape[1] and 0 <= v < image.shape[0]:
-#                 cv2.putText(image,
-#                             f"{depth:.1f} m",
-#                             (u, v-5),                        # a tad above centre
-#                             cv2.FONT_HERSHEY_SIMPLEX,
-#                             0.6,
-#                             (0, 0, 255),
-#                             2,
-#                             cv2.LINE_AA)
-
-#     return image, dets_out
-# # --------------------------------------------------------------
-
-# ──────────────────────────────────────────────────────────────────────────────
-def _get_box_corners_velo(cx, cy, cz, h, w, l, yaw):
-    """
-    Returns the 8 corners of a 3‑D box in the Velodyne frame.
-    """
-    # box corners in the object’s local frame
-    x_c =  l / 2.0;  x_n = -x_c
-    y_c =  w / 2.0;  y_n = -y_c
-    z_b = 0.0        # KITTI boxes have cz at the bottom face in Velodyne ↑
-    z_t = -h         # top face (negative z in Velodyne)
-
-    corners = np.array([
-        [x_c, y_c, z_b], [x_c, y_n, z_b], [x_n, y_n, z_b], [x_n, y_c, z_b],
-        [x_c, y_c, z_t], [x_c, y_n, z_t], [x_n, y_n, z_t], [x_n, y_c, z_t]
-    ]).T  # (3, 8)
-
-    # rotate about Z (up) then translate
-    c, s = np.cos(yaw), np.sin(yaw)
-    R = np.array([[ c, -s, 0.],
-                  [ s,  c, 0.],
-                  [ 0., 0., 1.]], dtype=np.float32)
-
-    corners = (R @ corners).T + np.array([cx, cy, cz], dtype=np.float32)
-    return corners  # (8, 3)
-# ──────────────────────────────────────────────────────────────────────────────
 def annotate_depths_3d(image, dets_velo, calib,
                        use_euclidean=True, draw=True):
-
     """
-        Annotate an RGB frame with the distance to each detected object and
-        return a copy of the detections array with that distance appended.
+    Parameters
+    ----------
+    image       :   BGR image to annotate (will be modified in-place)
+    dets_velo   :   (N,8/9/10) 3-D detections in Velodyne frame
+                    [cls, x, y, z, h, w, l, yaw, ...]
+    calib       :   kitti_data_utils.Calibration object
+    use_euclidean : if True, depth = sqrt(x²+y²+z²); else forward x only
+    draw        :   whether to overlay the text on the image
 
-        The distance is measured from the ego LiDAR origin to the **nearest
-        corner** of every 3‑D bounding box (rather than to its geometric
-        centre).  Optionally, the value is overlaid as text on the image.
+    Returns
+    -------
+    image_out   :   annotated image (same object if draw=True)
+    dets_out    :   (N, dets_velo.shape[1]+1) with extra depth column
+                    appended at the end
+    """
+    N          = dets_velo.shape[0]
+    dets_out   = np.zeros((N, dets_velo.shape[1] + 1))
+    dets_out[:, :dets_velo.shape[1]] = dets_velo
 
-        Parameters
-        ----------
-        image : np.ndarray, shape (H, W, 3), dtype=np.uint8
-            BGR image (OpenCV format) that will be modified *in‑place* if
-            ``draw`` is True.
-        dets_velo : np.ndarray, shape (N, 8+)  
-            Detections in the Velodyne coordinate frame. Each row is  
-            ``[cls, cx, cy, cz, h, w, l, yaw, (score, ...)]``.
-        calib : kitti_data_utils.Calibration
-            KITTI calibration object providing V2C, R0, and P matrices used
-            to project Velodyne points into the camera image.
-        use_euclidean : bool, default True
-            • **True**  – distance = √(x² + y² + z²) of the nearest corner  
-            • **False** – distance = smallest positive *x* (forward range)
-            among the eight corners; corners behind the sensor are ignored.
-        draw : bool, default True
-            If True, draws a “〈distance〉 m” label just above each box centre.
+    # ---- compute centres in pixels once -----------------------
+    centres_velo = dets_velo[:, 1:4]                               # (N,3)
+    centres_img  = velo_to_image(centres_velo, calib)              # (N,2)
 
-        Returns
-        -------
-        image_out : np.ndarray
-            Reference to the same ``image`` array (text is drawn if requested).
-        dets_out : np.ndarray, shape (N, dets_velo.shape[1] + 1)
-            Copy of ``dets_velo`` with an extra column containing the computed
-            distance for every detection.
-
-        Notes
-        -----
-        • KITTI’s Velodyne frame has +Z pointing up; the bottom face of each
-        box lies on the z = 0 plane.  
-        • For forward‑range mode (``use_euclidean=False``) the function
-        discards corners with x < 0 before taking the minimum, ensuring
-        that objects behind the ego vehicle are not considered.
-        """
-
-
-
-    N        = dets_velo.shape[0]
-    out      = np.zeros((N, dets_velo.shape[1] + 1))
-    out[:, :dets_velo.shape[1]] = dets_velo
-
-    # Pre‑compute pixel coords of all *centres* once (for placing the text)
-    centres_velo = dets_velo[:, 1:4]            # (N,3)
-    centres_img  = velo_to_image(centres_velo, calib)  # (N,2)
-
-    for i, det in enumerate(dets_velo):
-        _, cx, cy, cz, h, w, l, yaw = det[:8]
-
-        # ----- nearest‑point distance -------------------------------------------------
-        corners = _get_box_corners_velo(cx, cy, cz, h, w, l, yaw)  # (8,3)
-        if use_euclidean:
-            dists = np.linalg.norm(corners, axis=1)                # (8,)
-        else:  # “forward‑range” ⇒ use x‑component only
-            dists = corners[:, 0]                                  # (8,)
-            dists[dists < 0] = np.inf                              # ignore behind‑ego points
-        depth = float(dists.min())
-        # ------------------------------------------------------------------------------
-        out[i, -1] = depth
+    for i, (x_v, y_v, z_v) in enumerate(centres_velo):
+        depth = (x_v if not use_euclidean
+                 else np.linalg.norm([x_v, y_v, z_v]))
+        dets_out[i, -1] = depth                                    # write depth
 
         if draw:
-            u, v = map(int, np.round(centres_img[i]))
+            u, v = int(round(centres_img[i, 0])), int(round(centres_img[i, 1]))
             if 0 <= u < image.shape[1] and 0 <= v < image.shape[0]:
                 cv2.putText(image,
                             f"{depth:.1f} m",
-                            (u, v - 5),
+                            (u, v-5),                        # a tad above centre
                             cv2.FONT_HERSHEY_SIMPLEX,
                             0.6,
                             (0, 0, 255),
                             2,
                             cv2.LINE_AA)
-    return image, out
-# ──────────────────────────────────────────────────────────────────────────────
 
-
+    return image, dets_out
+# --------------------------------------------------------------
 
 
 T_velo_cam2 = np.array([
