@@ -136,7 +136,7 @@ def lidar_points(img_rgb, lidar_xyz, T_velo_cam2,remove_plane):
 
 def main(): 
     configs = parse_demo_configs()
-    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0027_sync/"
+    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0047_sync/"
     calib = Calibration(configs.calib_path)
 
     model3d = create_model(configs)
@@ -162,6 +162,7 @@ def main():
             metadatas, front_bevmap, back_bevmap, img_rgb = demo_dataset.load_bevmap_front_vs_back(sample_idx)
             lidar_xyz = metadatas['lidarData'][:, :4]          # drop reflectance
             lidar_xyz = lidar_xyz.T
+
 
               #RGB raw Image from the dataset
             img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
@@ -265,18 +266,18 @@ def main():
             out_img = np.concatenate((img_bgr, full_bev), axis=0)
             # cv2.putText(out_img, 'Speed: {:.1f} FPS'.format(fps), org=(900, 400), fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1,  color = (255, 255, 255), thickness = 2)
 
-            # # Create the video writer if not already created
-            # if out_cap is None:
-            #     out_cap_h, out_cap_w = out_img.shape[:2]
-            #     fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-            #     out_path = os.path.join(configs.results_dir, '{}lid_cam_off_road.avi'.format(configs.foldername))
-            #     print('Create video writer at {}'.format(out_path))
-            #     out_cap = cv2.VideoWriter(out_path, fourcc, 15, (out_cap_w, out_cap_h))
-            # Write the output frame to the video
-            #out_cap.write(out_img)
+            # Create the video writer if not already created
+            if out_cap is None:
+                out_cap_h, out_cap_w = out_img.shape[:2]
+                fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+                out_path = os.path.join(configs.results_dir, '{}demo.avi'.format(configs.foldername))
+                print('Create video writer at {}'.format(out_path))
+                out_cap = cv2.VideoWriter(out_path, fourcc, 15, (out_cap_w, out_cap_h))
+            ###Write the output frame to the video
+            out_cap.write(out_img)
 
             # DISPLAY IN REAL TIME
-            cv2.imshow("Demo", out_img)
+            cv2.imshow("3D box Demo", out_img)
             key = cv2.waitKey(1) & 0xFF
             # If you want to stop early by pressing 'q'
             if key == ord('q'):
