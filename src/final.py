@@ -23,6 +23,9 @@ from heads.SFA3D.sfa.utils.demo_utils import parse_demo_configs, do_detect, writ
 from pkgs.kitti_utils import *
 from pkgs.kitti_detection_utils import *
 from pkgs.utils import *
+from pkgs.cam_to_cam import cam_transformation
+from pkgs.lid_to_cam import lid_transformation
+
 
 from heads.detection_head import *
 from BEV.bev import *
@@ -146,11 +149,24 @@ def annotate_depths_3d(image, dets_velo, calib,
     return image, out
 # ──────────────────────────────────────────────────────────────────────────────#
 
-T_velo_cam2 = np.array([
-    [ 607.48      , -718.54      ,  -10.188    ,  -95.573   ],
-    [ 180.03      ,    5.8992    , -720.15     ,  -93.457   ],
-    [   0.99997   ,    0.00048595,   -0.0072069,   -0.28464 ]
-], dtype=np.float32)   # (3, 4)
+
+### Calibration matrix calculation
+cam_calib_file = '/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/calib_cam_to_cam.txt'
+P_rect2_cam2,R_ref0_rect2,T_ref0_ref2 = cam_transformation(cam_calib_file)
+
+lid_calib_file = '/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/calib_velo_to_cam.txt'
+T_velo_ref0 = lid_transformation(lid_calib_file)
+
+# transform from velo (LiDAR) to left color camera (shape 3x4)
+T_velo_cam2 = P_rect2_cam2 @ R_ref0_rect2 @ T_ref0_ref2 @ T_velo_ref0 
+
+
+### This is the calibration matrix that above code outputs
+# T_velo_cam2 = np.array([
+#     [ 607.48      , -718.54      ,  -10.188    ,  -95.573   ],
+#     [ 180.03      ,    5.8992    , -720.15     ,  -93.457   ],
+#     [   0.99997   ,    0.00048595,   -0.0072069,   -0.28464 ]
+# ], dtype=np.float32)   # (3, 4)
 
 # ──────────────────────────────────────────────────────────────────────────────#
 
@@ -310,11 +326,6 @@ def main():
                         use_euclidean=True,   # forward-range? set False if you prefer
                         draw=True)
             # ────────────────────────────────────────────────────────────────
-
-
-
-
-
 
 
             # kitti_dets = convert_det_to_real_values(front_detections)

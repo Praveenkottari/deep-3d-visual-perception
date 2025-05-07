@@ -40,12 +40,14 @@ P_rect2_cam2,R_ref0_rect2,T_ref0_ref2 = cam_transformation(cam_calib_file)
 lid_calib_file = '/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/calib_velo_to_cam.txt'
 T_velo_ref0 = lid_transformation(lid_calib_file)
 
+
 imu_calib_file = '/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/calib_imu_to_velo.txt'
 T_imu_velo = imu_transformation(imu_calib_file)
 
 
 # transform from velo (LiDAR) to left color camera (shape 3x4)
 T_velo_cam2 = P_rect2_cam2 @ R_ref0_rect2 @ T_ref0_ref2 @ T_velo_ref0 
+print(T_velo_cam2)
 # print(T_velo_cam2)
 # print(T_velo_cam2)
 # homogeneous transform from left color camera to velo (LiDAR) (shape: 4x4)
@@ -119,6 +121,8 @@ def main(save_vdeo=False):
        
     cv2.destroyAllWindows()
 
-###################################################################################################################
+
+
+#main fucniton
 if __name__ == "__main__":
     main(save_vdeo=False)
