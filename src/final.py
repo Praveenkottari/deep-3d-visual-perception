@@ -19,7 +19,6 @@ from heads.SFA3D.sfa.utils.visualization_utils import show_rgb_image_with_boxes
 from heads.SFA3D.sfa.data_process.kitti_data_utils import Calibration
 from heads.SFA3D.sfa.utils.demo_utils import parse_demo_configs, do_detect, write_credit
 
-
 # detection model 
 from pkgs.kitti_utils import *
 from pkgs.kitti_detection_utils import *
@@ -39,54 +38,8 @@ def velo_to_image(pts_velo, calib):
     pts_img_h  = calib.P2 @ np.vstack([pts_rect, np.ones((1,pts_rect.shape[1]))])
     pts_img_h[:2] /= pts_img_h[2:]
     return pts_img_h[:2].T                                        # (N,2)
+# ──────────────────────────────────────────────────────────────────────────────#
 
-# def annotate_depths_3d_center(image, dets_velo, calib,
-#                        use_euclidean=True, draw=True):
-#     """
-#     Parameters
-#     ----------
-#     image       :   BGR image to annotate (will be modified in-place)
-#     dets_velo   :   (N,8/9/10) 3-D detections in Velodyne frame
-#                     [cls, x, y, z, h, w, l, yaw, ...]
-#     calib       :   kitti_data_utils.Calibration object
-#     use_euclidean : if True, depth = sqrt(x²+y²+z²); else forward x only
-#     draw        :   whether to overlay the text on the image
-
-#     Returns
-#     -------
-#     image_out   :   annotated image (same object if draw=True)
-#     dets_out    :   (N, dets_velo.shape[1]+1) with extra depth column
-#                     appended at the end
-#     """
-#     N          = dets_velo.shape[0]
-#     dets_out   = np.zeros((N, dets_velo.shape[1] + 1))
-#     dets_out[:, :dets_velo.shape[1]] = dets_velo
-
-#     # ---- compute centres in pixels once -----------------------
-#     centres_velo = dets_velo[:, 1:4]                               # (N,3)
-#     centres_img  = velo_to_image(centres_velo, calib)              # (N,2)
-
-#     for i, (x_v, y_v, z_v) in enumerate(centres_velo):
-#         depth = (x_v if not use_euclidean
-#                  else np.linalg.norm([x_v, y_v, z_v]))
-#         dets_out[i, -1] = depth                                    # write depth
-
-#         if draw:
-#             u, v = int(round(centres_img[i, 0])), int(round(centres_img[i, 1]))
-#             if 0 <= u < image.shape[1] and 0 <= v < image.shape[0]:
-#                 cv2.putText(image,
-#                             f"{depth:.1f} m",
-#                             (u, v-5),                        # a tad above centre
-#                             cv2.FONT_HERSHEY_SIMPLEX,
-#                             0.6,
-#                             (0, 0, 255),
-#                             2,
-#                             cv2.LINE_AA)
-
-#     return image, dets_out
-# # --------------------------------------------------------------
-
-# ──────────────────────────────────────────────────────────────────────────────
 def _get_box_corners_velo(cx, cy, cz, h, w, l, yaw):
     """
     Returns the 8 corners of a 3‑D box in the Velodyne frame.
@@ -110,7 +63,8 @@ def _get_box_corners_velo(cx, cy, cz, h, w, l, yaw):
 
     corners = (R @ corners).T + np.array([cx, cy, cz], dtype=np.float32)
     return corners  # (8, 3)
-# ──────────────────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────#
+
 def annotate_depths_3d(image, dets_velo, calib,
                        use_euclidean=True, draw=True):
 
@@ -156,9 +110,6 @@ def annotate_depths_3d(image, dets_velo, calib,
         discards corners with x < 0 before taking the minimum, ensuring
         that objects behind the ego vehicle are not considered.
         """
-
-
-
     N        = dets_velo.shape[0]
     out      = np.zeros((N, dets_velo.shape[1] + 1))
     out[:, :dets_velo.shape[1]] = dets_velo
@@ -193,10 +144,7 @@ def annotate_depths_3d(image, dets_velo, calib,
                             2,
                             cv2.LINE_AA)
     return image, out
-# ──────────────────────────────────────────────────────────────────────────────
-
-
-
+# ──────────────────────────────────────────────────────────────────────────────#
 
 T_velo_cam2 = np.array([
     [ 607.48      , -718.54      ,  -10.188    ,  -95.573   ],
@@ -204,6 +152,7 @@ T_velo_cam2 = np.array([
     [   0.99997   ,    0.00048595,   -0.0072069,   -0.28464 ]
 ], dtype=np.float32)   # (3, 4)
 
+# ──────────────────────────────────────────────────────────────────────────────#
 
 def project_lid2uvz(lidar_xyz, T_uvz_velo, image, remove_plane=False):
     ''' Projects LiDAR point cloud onto the image coordinate frame (u, v, z)
@@ -236,6 +185,7 @@ def project_lid2uvz(lidar_xyz, T_uvz_velo, image, remove_plane=False):
     velo_uvz = xyzw2camera(lidar_xyz, T_uvz_velo, image, remove_outliers=True)
     return velo_uvz
 
+# ──────────────────────────────────────────────────────────────────────────────#
 
 def lidar_points(img_rgb, lidar_xyz, T_velo_cam2,remove_plane):
 
@@ -243,6 +193,7 @@ def lidar_points(img_rgb, lidar_xyz, T_velo_cam2,remove_plane):
     velo_uvz = project_lid2uvz(lidar_xyz, T_velo_cam2, img_rgb, remove_plane=remove_plane)
     return velo_uvz
 
+# ──────────────────────────────────────────────────────────────────────────────#
 
 
 def main(): 
