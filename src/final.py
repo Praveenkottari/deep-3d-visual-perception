@@ -7,6 +7,7 @@ import cv2
 import torch
 import numpy as np
 
+#detection module
 from heads.SFA3D.sfa.data_process.demo_dataset import Demo_KittiDataset
 from heads.SFA3D.sfa.models.model_utils import create_model
 from heads.SFA3D.sfa.utils.evaluation_utils import draw_predictions, convert_det_to_real_values
@@ -24,11 +25,7 @@ from pkgs.utils import *
 from pkgs.cam_to_cam import cam_transformation
 from pkgs.lid_to_cam import lid_transformation
 
-
 from BEV.bev import *
-
-
-
 
 
 def velo_to_image(pts_velo, calib):
@@ -265,10 +262,6 @@ def main():
             front_detections, front_bevmap, _ = do_detect(configs, model3d, front_bevmap, is_front=True)
             back_detections, back_bevmap, _ = do_detect(configs, model3d, back_bevmap, is_front=False)
 
-            # ----- depth extraction -----------------------------------------------------
-            front_w_depth = detections_with_depth(front_detections, calib, use_euclidean=True)
-            back_w_depth  = detections_with_depth(back_detections,  calib, use_euclidean=True)
-
             
 
             # # after you already have front_detections & back_detections
@@ -280,8 +273,6 @@ def main():
             #         img_bgr, dets_velo, calib,
             #         use_euclidean=True,         # or False for forward range only
             #         draw=True)
-
-
 
 
             # Draw prediction in the top view lidar image
@@ -304,11 +295,6 @@ def main():
             full_bev = np.concatenate((back_bevmap, front_bevmap), axis=1)
             # cv2.imshow("full_bev",full_bev)   
           
-
-
-
-
-
 
         
             kitti_dets = convert_det_to_real_values(front_detections)
