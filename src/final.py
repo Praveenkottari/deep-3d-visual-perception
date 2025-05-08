@@ -2,9 +2,7 @@
 import sys
 import os
 import warnings
-
 warnings.filterwarnings("ignore", category=UserWarning)
-
 import cv2
 import torch
 import numpy as np
@@ -15,11 +13,11 @@ from heads.SFA3D.sfa.utils.evaluation_utils import draw_predictions, convert_det
 import heads.SFA3D.sfa.config.kitti_config as cnf
 from heads.SFA3D.sfa.data_process.transformation import lidar_to_camera_box
 from heads.SFA3D.sfa.utils.visualization_utils import show_rgb_image_with_boxes
-
 from heads.SFA3D.sfa.data_process.kitti_data_utils import Calibration
-from heads.SFA3D.sfa.utils.demo_utils import parse_demo_configs, do_detect, write_credit
+from heads.SFA3D.sfa.utils.demo_utils import parse_demo_configs, do_detect
+from heads.detection_head import *
 
-# detection model 
+# fusion modules
 from pkgs.kitti_utils import *
 from pkgs.kitti_detection_utils import *
 from pkgs.utils import *
@@ -27,8 +25,11 @@ from pkgs.cam_to_cam import cam_transformation
 from pkgs.lid_to_cam import lid_transformation
 
 
-from heads.detection_head import *
 from BEV.bev import *
+
+
+
+
 
 def velo_to_image(pts_velo, calib):
     """
@@ -160,6 +161,8 @@ T_velo_ref0 = lid_transformation(lid_calib_file)
 # transform from velo (LiDAR) to left color camera (shape 3x4)
 T_velo_cam2 = P_rect2_cam2 @ R_ref0_rect2 @ T_ref0_ref2 @ T_velo_ref0 
 
+# homogeneous transform from left color camera to velo (LiDAR) (shape: 4x4)
+T_cam2_velo = np.linalg.inv(np.insert(T_velo_cam2, 3, values=[0,0,0,1], axis=0)) 
 
 ### This is the calibration matrix that above code outputs
 # T_velo_cam2 = np.array([
@@ -249,7 +252,9 @@ def main():
 
             # get detections and object centers in uvz
             velo_uvz = lidar_points(img_bgr, lidar_xyz, T_velo_cam2,remove_plane=True)
-            
+
+            # canvas_out = draw_scenario(velo_uvz,T_cam2_velo,line_draw=True)
+            # cv2.imshow("dist_canvas",canvas_out)
 
             #lidar projection on rgb
             lidar_proj_image = draw_velo_on_image(velo_uvz, img_bgr,draw_lidar = False)
@@ -260,6 +265,11 @@ def main():
             front_detections, front_bevmap, _ = do_detect(configs, model3d, front_bevmap, is_front=True)
             back_detections, back_bevmap, _ = do_detect(configs, model3d, back_bevmap, is_front=False)
 
+            # ----- depth extraction -----------------------------------------------------
+            front_w_depth = detections_with_depth(front_detections, calib, use_euclidean=True)
+            back_w_depth  = detections_with_depth(back_detections,  calib, use_euclidean=True)
+
+            
 
             # # after you already have front_detections & back_detections
             # front_real = convert_det_to_real_values(front_detections)
@@ -294,6 +304,12 @@ def main():
             full_bev = np.concatenate((back_bevmap, front_bevmap), axis=1)
             # cv2.imshow("full_bev",full_bev)   
           
+
+
+
+
+
+
         
             kitti_dets = convert_det_to_real_values(front_detections)
             # ─── FRONT-VIEW ONLY: draw 3-D boxes + depth labels ─────────────

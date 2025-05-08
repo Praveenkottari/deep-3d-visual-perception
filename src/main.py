@@ -95,7 +95,6 @@ def main(save_vdeo=False):
     # #lidar points in the frame
     velo_image = draw_velo_on_image(velo_uvz, np.zeros_like(left_image))
     Image.fromarray(velo_image).show()
-
     uvz = bboxes[:, -3:]
     #lidar co ordinate for detected obejcts 
     canvas_out = draw_scenario(uvz,T_cam2_velo,line_draw=True)

@@ -17,7 +17,7 @@ ego_y1 = ego_center[1] - 10
 ego_x2 = ego_center[0] + 5
 ego_y2 = ego_center[1] + 10
 
-def draw_scenario(uvz, T_cam2_velo, sf=10,line_draw=True):
+def draw_scenario(uvz, T_cam2_velo, sf=1,line_draw=True):
     """
     uvz: N x 3 array of [u, v, z], where:
          (u, v) are image coordinates, 
