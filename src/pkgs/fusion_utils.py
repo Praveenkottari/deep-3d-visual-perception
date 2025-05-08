@@ -166,3 +166,25 @@ def lidar_points(img_rgb, lidar_xyz, T_velo_cam2,remove_plane):
     return velo_uvz
 
 # ──────────────────────────────────────────────────────────────────────────────#
+
+# plotting functions (place these in KITTI plot utils
+from matplotlib import cm
+
+# get color map function
+rainbow_r = cm.get_cmap('rainbow_r', lut=100)
+get_color = lambda z : [255*val for val in rainbow_r(int(z.round()))[:3]]
+
+def draw_velo_on_rgbimage(lidar_xyz,T_velo_cam2,image, remove_plane=True,draw_lidar = True,color_map=get_color):
+    
+    velo_uvz = project_lid2uvz(lidar_xyz,T_velo_cam2, image=image, remove_plane=remove_plane)
+    if draw_lidar:
+        # unpack LiDAR points
+        u, v, z = velo_uvz
+
+        # draw LiDAR point cloud on blank image
+        for i in range(len(u)):
+            cv2.circle(image, (int(u[i]), int(v[i])), 1, 
+                    color_map(z[i]), -1)
+        return image
+    else:       
+        return image

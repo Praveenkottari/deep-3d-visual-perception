@@ -175,8 +175,7 @@ rainbow_r = cm.get_cmap('rainbow_r', lut=100)
 get_color = lambda z : [255*val for val in rainbow_r(int(z.round()))[:3]]
 
 def draw_velo_on_image(velo_uvz, image, color_map=get_color, draw_lidar = True):
-   
-   
+      
     if draw_lidar:
         # unpack LiDAR points
         u, v, z = velo_uvz
