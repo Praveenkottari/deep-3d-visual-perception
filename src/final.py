@@ -6,6 +6,8 @@ warnings.filterwarnings("ignore", category=UserWarning)
 import cv2
 import torch
 import numpy as np
+import time
+from collections import deque
 
 #detection module
 from heads.SFA3D.sfa.data_process.demo_dataset import Demo_KittiDataset
@@ -50,6 +52,8 @@ T_cam2_velo = np.linalg.inv(np.insert(T_velo_cam2, 3, values=[0,0,0,1], axis=0))
 # ], dtype=np.float32)   # (3, 4)
 # ──────────────────────────────────────────────────────────────────────────────#
 
+
+## main loop
 def main(): 
     configs = parse_demo_configs()
     configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0047_sync/"
@@ -69,6 +73,10 @@ def main():
     out_cap = None
     demo_dataset = Demo_KittiDataset(configs)
 
+
+    prev_t = time.time()      # wall‑clock of previous frame
+    fps_window = deque(maxlen=30) # rolling‑mean smoother (≈½ s @ 60 FPS)
+
     ## Looping thorugh all the samples in the dataset
     with torch.no_grad():
         for sample_idx in range(len(demo_dataset)):
@@ -82,7 +90,7 @@ def main():
             img_bgr = cv2.resize(img_bgr, (cnf.BEV_WIDTH * 2, 375))  
         
             #lidar projection on rgb with ground plan removal option
-            img_bgr = draw_velo_on_rgbimage(lidar_xyz,T_velo_cam2, img_bgr,remove_plane=True,draw_lidar = False)
+            img_bgr = draw_velo_on_rgbimage(lidar_xyz,T_velo_cam2, img_bgr,remove_plane=False,draw_lidar = False)
 
             # Front and back detection in the lidar space
             front_detections, front_bevmap, _ = do_detect(configs, model3d, front_bevmap, is_front=True)
@@ -127,8 +135,30 @@ def main():
                         use_euclidean=True,draw=True)
 
             out_img = np.concatenate((img_bgr, full_bev), axis=0)
-            #cv2.putText(out_img, 'Speed: {:.1f} FPS'.format(fps), org=(900, 400), fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1,  color = (255, 255, 255), thickness = 2)
+            # ── FPS calculation ─────────────────────────────
+            now_t  = time.time()    
+            # if you run on GPU, force CUDA to finish first so the timing is accurate
+            if configs.device.type == "cuda":
+                torch.cuda.synchronize()
 
+            dt    = now_t - prev_t          # seconds taken for this frame
+            prev_t = now_t
+            fps   = 1.0 / dt if dt else 0.0
+
+            fps_window.append(fps)
+            smooth_fps = sum(fps_window) / len(fps_window)
+
+            # ── annotate ────────────────────────────────────
+            cv2.putText(
+                out_img,
+                f"Speed: {smooth_fps:5.1f} FPS",
+                (900, 400),                       # (x, y) top‑left corner
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1.0,                            # font scale
+                (255, 255, 255),                  # BGR colour (light yellow)
+                2,                              # thickness
+                cv2.LINE_AA                     # anti‑aliased
+            )
             # Create the video writer
             if out_cap is None:
                 out_cap_h, out_cap_w = out_img.shape[:2]
