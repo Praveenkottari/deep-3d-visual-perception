@@ -56,7 +56,7 @@ T_cam2_velo = np.linalg.inv(np.insert(T_velo_cam2, 3, values=[0,0,0,1], axis=0))
 ## main loop
 def main(): 
     configs = parse_demo_configs()
-    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0047_sync/"
+    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0027_sync/"
     calib = Calibration(configs.calib_path)
 
     ## Model
