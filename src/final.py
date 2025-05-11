@@ -42,7 +42,7 @@ T_velo_ref0 = lid_transformation(lid_calib_file)
 # transform from LiDAR to camera (shape 3x4)
 T_velo_cam2 = P_rect2_cam2 @ R_ref0_rect2 @ T_ref0_ref2 @ T_velo_ref0       
 # homogeneous transform from camera to LiDAR (shape: 4x4)
-T_cam2_velo = np.linalg.inv(np.insert(T_velo_cam2, 3, values=[0,0,0,1], axis=0)) 
+# T_cam2_velo = np.linalg.inv(np.insert(T_velo_cam2, 3, values=[0,0,0,1], axis=0)) 
 
 ### This is the calibration matrix that above code outputs
 # T_velo_cam2 = np.array([
