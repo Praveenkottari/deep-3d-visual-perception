@@ -3,7 +3,7 @@ import numpy as np
 from PIL import Image
 import math
 
-from pkgs.kitti_utils import *
+from ..pkgs.kitti_utils import *
 
 canvas_height = 620
 canvas_width = 376

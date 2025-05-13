@@ -1,4 +1,4 @@
-from pkgs.kitti_detection_utils import *
+from .kitti_detection_utils import *
 
 def lid_transformation(filepath):
 
