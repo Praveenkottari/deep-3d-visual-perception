@@ -18,7 +18,6 @@ from heads.SFA3D.sfa.data_process.transformation import lidar_to_camera_box
 from heads.SFA3D.sfa.utils.visualization_utils import show_rgb_image_with_boxes
 from heads.SFA3D.sfa.data_process.kitti_data_utils import Calibration
 from heads.SFA3D.sfa.utils.demo_utils import parse_demo_configs, do_detect
-from heads.detection_head import *
 
 # fusion modules
 from pkgs.kitti_utils import *
@@ -90,7 +89,7 @@ def main():
             img_bgr = cv2.resize(img_bgr, (cnf.BEV_WIDTH * 2, 375))  
         
             #lidar projection on rgb with ground plan removal option
-            img_bgr = draw_velo_on_rgbimage(lidar_xyz,T_velo_cam2, img_bgr,remove_plane=False,draw_lidar = True)
+            img_bgr = draw_velo_on_rgbimage(lidar_xyz,T_velo_cam2, img_bgr,remove_plane=False,draw_lidar = False)
 
             # Front and back detection in the lidar space
             front_detections, front_bevmap, _ = do_detect(configs, model3d, front_bevmap, is_front=True)
@@ -110,7 +109,7 @@ def main():
             back_bevmap = cv2.rotate(back_bevmap, cv2.ROTATE_90_CLOCKWISE)
             # merge front and back bevmap to get full top lidar view with detection and boudning box
             full_bev = np.concatenate((back_bevmap, front_bevmap), axis=1)
-            cv2.imshow("full_bev",full_bev)   
+            # cv2.imshow("full_bev",full_bev)   
         
             # skip early if nothing detected
             if front_detections is not None and len(front_detections) > 0:
