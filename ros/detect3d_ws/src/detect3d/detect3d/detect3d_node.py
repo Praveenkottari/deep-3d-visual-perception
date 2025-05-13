@@ -56,67 +56,59 @@ class Detect3DOverlayBEVNode(Node):
         pts = raw.reshape(-1, int(msg.point_step / 4))[:, :4]
         return pts.copy()
 
+    
     def cb(self, img_msg, pcl_msg):
         self.get_logger().info("Received image and pointcloud")
 
         rgb = bridge.imgmsg_to_cv2(img_msg, 'bgr8')
         pts_lidar = self.cloud_to_numpy(pcl_msg)
 
-        # LiDAR overlay
-        rgb_overlay = draw_velo_on_rgbimage(pts_lidar.T, self.T_velo_cam2, rgb.copy(), remove_plane=False, draw_lidar=True)
+        rgb_overlay = draw_velo_on_rgbimage(
+            pts_lidar.T, self.T_velo_cam2, rgb.copy(),
+            remove_plane=False, draw_lidar=True
+        )
         self.pub_rgb_overlay.publish(bridge.cv2_to_imgmsg(rgb_overlay, 'bgr8', img_msg.header))
 
-        # Generate BEV maps
+        # Preprocess LiDAR
         front_lidar = get_filtered_lidar(pts_lidar, cnf.boundary)
         back_lidar = get_filtered_lidar(pts_lidar, cnf.boundary_back)
 
         front_bevmap = makeBEVMap(front_lidar, cnf.boundary)
         back_bevmap = makeBEVMap(back_lidar, cnf.boundary_back)
 
-        # Convert to torch tensors
         front_tensor = torch.from_numpy(front_bevmap).float()
         back_tensor = torch.from_numpy(back_bevmap).float()
 
-        # Run detection
+        print("Front tensor shape:", front_tensor.shape)
+        print("Back tensor shape:", back_tensor.shape)
+        # Inference
         with torch.no_grad():
-            front_detections, front_tensor, _ = do_detect(self.cfg, self.model, front_tensor, is_front=True)
-            back_detections, back_tensor, _ = do_detect(self.cfg, self.model, back_tensor, is_front=False)
+            front_detections, _, _ = do_detect(self.cfg, self.model, front_tensor, is_front=True)
+            back_detections, _, _ = do_detect(self.cfg, self.model, back_tensor, is_front=False)
 
-        # Convert to uint8 BGR image
-        front_bev_img = (front_tensor.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
-        back_bev_img = (back_tensor.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
+        # Convert tensors to images
+        front_img = (front_tensor.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
+        back_img = (back_tensor.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
 
-        front_bev_img = cv2.resize(front_bev_img, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT))
-        back_bev_img = cv2.resize(back_bev_img, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT))
+        front_img = cv2.resize(front_img, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT))
+        back_img = cv2.resize(back_img, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT))
 
-        front_bev_img_raw = cv2.rotate(front_bev_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
-        back_bev_img_raw = cv2.rotate(back_bev_img, cv2.ROTATE_90_CLOCKWISE)
-        full_bev_raw = np.concatenate((back_bev_img_raw,front_bev_img_raw), axis=1)
+        # Draw predictions BEFORE rotating
+        front_img_det = draw_predictions(front_img.copy(), front_detections, self.cfg.num_classes)
+        back_img_det = draw_predictions(back_img.copy(), back_detections, self.cfg.num_classes)
+
+        # Rotate for display (same as main.py)
+        front_img = cv2.rotate(front_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        back_img = cv2.rotate(back_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        front_img_det = cv2.rotate(front_img_det, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        back_img_det = cv2.rotate(back_img_det, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+        # Concatenate: BACK on left, FRONT on right
+        full_bev_raw = np.concatenate((back_img, front_img), axis=1)
+        full_bev_det = np.concatenate((back_img_det, front_img_det), axis=1)
 
         self.pub_bev_raw.publish(bridge.cv2_to_imgmsg(full_bev_raw, 'bgr8', img_msg.header))
-
-
-
-        # Draw predictions
-        front_bev_img = draw_predictions(front_bev_img, front_detections, self.cfg.num_classes)
-        back_bev_img = draw_predictions(back_bev_img, back_detections, self.cfg.num_classes)
-
-        # Rotate
-        front_bev_img = cv2.rotate(front_bev_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
-        back_bev_img = cv2.rotate(back_bev_img, cv2.ROTATE_90_CLOCKWISE)
-
-        # Match size
-        h1, w1 = front_bev_img.shape[:2]
-        h2, w2 = back_bev_img.shape[:2]
-        target_shape = (min(w1, w2), min(h1, h2))
-        front_bev_img = cv2.resize(front_bev_img, target_shape)
-        back_bev_img = cv2.resize(back_bev_img, target_shape)
-
-        # Concatenate
-        full_bev = np.concatenate((back_bev_img, front_bev_img), axis=1)
-
-        # Publish
-        self.pub_bev_det.publish(bridge.cv2_to_imgmsg(full_bev, 'bgr8', img_msg.header))
+        self.pub_bev_det.publish(bridge.cv2_to_imgmsg(full_bev_det, 'bgr8', img_msg.header))
 
 def main(args=None):
     rclpy.init(args=args)
