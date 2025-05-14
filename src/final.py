@@ -40,6 +40,7 @@ T_velo_ref0 = lid_transformation(lid_calib_file)
 
 # transform from LiDAR to camera (shape 3x4)
 T_velo_cam2 = P_rect2_cam2 @ R_ref0_rect2 @ T_ref0_ref2 @ T_velo_ref0       
+
 # homogeneous transform from camera to LiDAR (shape: 4x4)
 # T_cam2_velo = np.linalg.inv(np.insert(T_velo_cam2, 3, values=[0,0,0,1], axis=0)) 
 
@@ -55,8 +56,11 @@ T_velo_cam2 = P_rect2_cam2 @ R_ref0_rect2 @ T_ref0_ref2 @ T_velo_ref0
 ## main loop
 def main(): 
     configs = parse_demo_configs()
-    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0027_sync/"
+    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0047_sync/"
     calib = Calibration(configs.calib_path)
+
+
+
 
     ## Model
     model3d = create_model(configs)
@@ -89,7 +93,7 @@ def main():
             img_bgr = cv2.resize(img_bgr, (cnf.BEV_WIDTH * 2, 375))  
         
             #lidar projection on rgb with ground plan removal option
-            img_bgr = draw_velo_on_rgbimage(lidar_xyz,T_velo_cam2, img_bgr,remove_plane=False,draw_lidar = False)
+            img_bgr = draw_velo_on_rgbimage(lidar_xyz,T_velo_cam2, img_bgr,remove_plane=False,draw_lidar = True)
 
             # Front and back detection in the lidar space
             front_detections, front_bevmap, _ = do_detect(configs, model3d, front_bevmap, is_front=True)
@@ -109,7 +113,7 @@ def main():
             back_bevmap = cv2.rotate(back_bevmap, cv2.ROTATE_90_CLOCKWISE)
             # merge front and back bevmap to get full top lidar view with detection and boudning box
             full_bev = np.concatenate((back_bevmap, front_bevmap), axis=1)
-            # cv2.imshow("full_bev",full_bev)   
+            cv2.imshow("full_bev",full_bev)   
         
             # skip early if nothing detected
             if front_detections is not None and len(front_detections) > 0:
