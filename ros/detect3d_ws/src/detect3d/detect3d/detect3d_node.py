@@ -17,6 +17,7 @@ from heads.SFA3D.sfa.utils.evaluation_utils import convert_det_to_real_values
 from heads.SFA3D.sfa.data_process.transformation import lidar_to_camera_box
 from heads.SFA3D.sfa.utils.visualization_utils import show_rgb_image_with_boxes
 from heads.SFA3D.sfa.data_process.kitti_data_utils import Calibration
+from pkgs.fusion_utils import *
 
 
 from pkgs.fusion_utils import draw_velo_on_rgbimage
@@ -54,9 +55,10 @@ class Detect3DOverlayBEVNode(Node):
 
         # Publishers
         self.pub_rgb_overlay = self.create_publisher(Image, '/detect3d/rgb_overlay', 5)
-        self.pub_bev_raw = self.create_publisher(Image, '/detect3d/bev_image', 5)
         self.pub_bev_det = self.create_publisher(Image, '/detect3d/bev_detections', 5)
         self.pub_rgb_boxes = self.create_publisher(Image, '/detect3d/rgb_boxes', 5)
+        self.pub_box_depth = self.create_publisher(Image, '/detect3d/depth_boxes', 5)
+
 
 
         # Subscribers
@@ -95,8 +97,8 @@ class Detect3DOverlayBEVNode(Node):
         front_bevmap = torch.from_numpy(front_bevmap).float()
         back_bevmap = torch.from_numpy(back_bevmap).float()
 
-        print("Front tensor shape:", front_bevmap.shape)
-        print("Back tensor shape:", back_bevmap.shape)
+        # print("Front tensor shape:", front_bevmap.shape)
+        # print("Back tensor shape:", back_bevmap.shape)
         # Inference
         with torch.no_grad():
             front_detections, front_bevmap, _ = do_detect(self.cfg, self.model, front_bevmap, is_front=True)
@@ -106,12 +108,15 @@ class Detect3DOverlayBEVNode(Node):
         front_bevmap = (front_bevmap.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
         back_bevmap = (back_bevmap.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
 
+
         front_bevmap = cv2.resize(front_bevmap, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT))
         back_bevmap = cv2.resize(back_bevmap, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT))
 
         # Draw predictions BEFORE rotating
         front_bevmap = draw_predictions(front_bevmap, front_detections, self.cfg.num_classes)
         back_bevmap = draw_predictions(back_bevmap, back_detections, self.cfg.num_classes)
+
+
 
         # Rotate for display (same as main.py)
 
@@ -120,24 +125,36 @@ class Detect3DOverlayBEVNode(Node):
 
         # Concatenate: BACK on left, FRONT on right
         full_bev_det = np.concatenate((back_bevmap, front_bevmap), axis=1)
-
         self.pub_bev_det.publish(bridge.cv2_to_imgmsg(full_bev_det, 'bgr8', img_msg.header))
 
+        
+        # Always prepare a copy
+        rgb_with_boxes = rgb.copy()
 
-        # Convert detections to real-world dimensions
         if front_detections is not None and len(front_detections) > 0:
             front_real = convert_det_to_real_values(front_detections)
             if isinstance(front_real, torch.Tensor):
                 front_real = front_real.cpu().numpy()
-
             if front_real.size > 0:
                 front_cam = front_real.copy()
                 front_cam[:, 1:] = lidar_to_camera_box(
-                    front_cam[:, 1:], self.calib.V2C, self.calib.R0, self.calib.P2)
+                    front_cam[:, 1:], self.calib.V2C, self.calib.R0, self.calib.P2
+                )
 
-                rgb_with_boxes = show_rgb_image_with_boxes(rgb.copy(), front_cam, self.calib)
+                rgb_with_boxes = show_rgb_image_with_boxes(rgb_with_boxes, front_cam, self.calib)
 
-                self.pub_rgb_boxes.publish(bridge.cv2_to_imgmsg(rgb_with_boxes, 'bgr8', img_msg.header))
+                # ✅ Depth annotation
+                box_with_depth, _ = annotate_depths_3d(
+                    rgb_with_boxes, front_real, self.calib, use_euclidean=True, draw=True
+                )
+                self.pub_box_depth.publish(bridge.cv2_to_imgmsg(box_with_depth, 'bgr8', img_msg.header))
+            else:
+                self.pub_box_depth.publish(bridge.cv2_to_imgmsg(rgb_with_boxes, 'bgr8', img_msg.header))
+        else:
+            self.pub_box_depth.publish(bridge.cv2_to_imgmsg(rgb_with_boxes, 'bgr8', img_msg.header))
+
+        # ✅ Always publish RGB image with or without boxes
+        self.pub_rgb_boxes.publish(bridge.cv2_to_imgmsg(rgb_with_boxes, 'bgr8', img_msg.header))
 
 
 def main(args=None):
