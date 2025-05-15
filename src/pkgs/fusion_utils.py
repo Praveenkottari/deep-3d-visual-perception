@@ -137,7 +137,7 @@ def project_lid2uvz(lidar_xyz, T_uvz_velo, image, remove_plane=False):
 
         ransac = linear_model.RANSACRegressor(
                                 linear_model.LinearRegression(),
-                                residual_threshold=0.1,
+                                residual_threshold=0.5,
                                 max_trials=5000
                                 )
 
