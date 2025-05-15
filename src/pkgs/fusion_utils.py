@@ -188,3 +188,39 @@ def draw_velo_on_rgbimage(lidar_xyz,T_velo_cam2,image, remove_plane=True,draw_li
         return image
     else:       
         return image
+
+
+def create_depth_map(lidar_xyz, T_velo_cam2, image_shape):
+    """
+    lidar_xyz: (4, N) lidar points in homogeneous
+    T_velo_cam2: (3, 4) projection matrix
+    image_shape: (H, W) shape of the camera image
+
+    Returns: depth map of shape (H, W)
+    """
+    # Project lidar to image plane
+    pts_3d_cam = T_velo_cam2 @ lidar_xyz  # shape: (3, N)
+
+    u = pts_3d_cam[0] / pts_3d_cam[2]
+    v = pts_3d_cam[1] / pts_3d_cam[2]
+    z = pts_3d_cam[2]  # Depth
+
+    u = np.round(u).astype(int)
+    v = np.round(v).astype(int)
+
+    H, W = image_shape
+    depth_map = np.zeros((H, W), dtype=np.float32)
+
+    # Only keep points that fall within image bounds and are in front of camera
+    valid = (u >= 0) & (u < W) & (v >= 0) & (v < H) & (z > 0)
+    u = u[valid]
+    v = v[valid]
+    z = z[valid]
+
+    # If multiple points land on same pixel, keep the closest (min depth)
+    for i in range(len(u)):
+        px_u, px_v, depth = u[i], v[i], z[i]
+        if depth_map[px_v, px_u] == 0 or depth < depth_map[px_v, px_u]:
+            depth_map[px_v, px_u] = depth
+
+    return depth_map

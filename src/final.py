@@ -33,27 +33,6 @@ from BEV.bev import *
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-# ──────────────────────────────────────────────────────────────────────────────#
-### Calibration matrix calculation
-cam_calib_file = '/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/calib_cam_to_cam.txt'
-lid_calib_file = '/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/calib_velo_to_cam.txt'
-
-P_rect2_cam2,R_ref0_rect2,T_ref0_ref2 = cam_transformation(cam_calib_file)
-T_velo_ref0 = lid_transformation(lid_calib_file)
-
-# transform from LiDAR to camera (shape 3x4)
-T_velo_cam2 = P_rect2_cam2 @ R_ref0_rect2 @ T_ref0_ref2 @ T_velo_ref0       
-
-# homogeneous transform from camera to LiDAR (shape: 4x4)
-# T_cam2_velo = np.linalg.inv(np.insert(T_velo_cam2, 3, values=[0,0,0,1], axis=0)) 
-
-### This is the calibration matrix that above code outputs
-# T_velo_cam2 = np.array([
-#     [ 607.48      , -718.54      ,  -10.188    ,  -95.573   ],
-#     [ 180.03      ,    5.8992    , -720.15     ,  -93.457   ],
-#     [   0.99997   ,    0.00048595,   -0.0072069,   -0.28464 ]
-# ], dtype=np.float32)   # (3, 4)
-# ──────────────────────────────────────────────────────────────────────────────#
 
 DEBUG = True
 
@@ -61,6 +40,7 @@ DEBUG = True
 ## main loop
 def main(): 
     configs = parse_demo_configs()
+   
         # Ensure default paths exist if not set in config
     if not hasattr(configs, 'detect_logs'):
         configs.detect_logs = './logs'
@@ -71,6 +51,23 @@ def main():
 
     configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0027_sync/"
     calib = Calibration(configs.calib_path)
+
+    # Create 4x4 V2C from 3x4
+    V2C_4x4 = np.eye(4)
+    V2C_4x4[:3, :] = calib.V2C  # calib.V2C is 3x4
+
+    # Create 4x4 R0 from 3x3
+    R0_4x4 = np.eye(4)
+    R0_4x4[:3, :3] = calib.R0  # calib.R0 is 3x3
+
+    # Compose full 4x4 transformation
+    T_velo_to_rect = R0_4x4 @ V2C_4x4  # Now 4x4
+
+    # Final projection: P2 (3x4) × T_velo_to_rect (4x4)
+    T_velo_cam2 = calib.P2 @ T_velo_to_rect  # (3x4) = (3x4) × (4x4)
+
+    print(T_velo_cam2)
+
 
     ## Model
     model3d = create_model(configs)
@@ -156,8 +153,7 @@ def main():
 
                 # draw 3-D wireframes (need camera-frame corners)
                 front_cam = front_real.copy()
-                front_cam[:, 1:] = lidar_to_camera_box(
-                    front_cam[:, 1:], calib.V2C, calib.R0, calib.P2)
+                front_cam[:, 1:] = lidar_to_camera_box(front_cam[:, 1:], calib.V2C, calib.R0, calib.P2)
                 img_bgr = show_rgb_image_with_boxes(img_bgr, front_cam, calib)
                 
                 # Draw class labels on image
@@ -183,9 +179,23 @@ def main():
                # depth text at each box centre
                 img_bgr, _ = annotate_depths_3d(img_bgr,front_real,calib,use_euclidean=True,draw=True)
 
-
             out_img = np.concatenate((img_bgr, full_bev), axis=0)
             full_bev = cv2.rotate(full_bev, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+
+            # Step 1: make lidar points homogeneous (4, N)
+            lidar_hom = np.vstack((lidar_xyz[:3, :], np.ones((1, lidar_xyz.shape[1]))))  # (4, N)
+            # Step 2: generate depth map
+            depth_map = create_depth_map(lidar_hom, T_velo_cam2, image_shape=(375, cnf.BEV_WIDTH * 2))  # same size as img_bgr
+            # Step 3: visualize or save
+            depth_normalized = cv2.normalize(depth_map, None, 0, 255, cv2.NORM_MINMAX)
+            depth_uint8 = depth_normalized.astype(np.uint8)
+            # Apply color map
+            depth_colored = cv2.applyColorMap(depth_uint8, cv2.COLORMAP_MAGMA)
+            # Replace black (0 depth) pixels with a specific color (e.g., dark gray or red)
+            mask = (depth_map == 0)
+            depth_colored[mask] = (255, 255, 255)  # You can try (0, 0, 255) for red
+
 
             # ── FPS calculation ─────────────────────────────
             now_t  = time.time()    
@@ -215,10 +225,10 @@ def main():
             
             #--------*************************************----------------------#
 
-            # DISPLAY REAL TIME
+            ###### DISPLAY REAL TIME
             cv2.imshow("3D detection", out_img)
-            # cv2.imshow('full bev with detection',full_bev)
-
+            cv2.imshow('full bev with detection',full_bev)
+            cv2.imshow("Depth Map", depth_colored)
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
@@ -227,7 +237,6 @@ def main():
         out_cap.release()
     cv2.destroyAllWindows()
     csv_file.close()
-    vis.destroy_window()
 
 
 if __name__ == '__main__':
