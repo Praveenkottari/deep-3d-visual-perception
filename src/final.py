@@ -68,7 +68,6 @@ def main():
 
     print(T_velo_cam2)
 
-
     ## Model
     model3d = create_model(configs)
     print('\n\n' + '*' * 60 + '\n\n')
