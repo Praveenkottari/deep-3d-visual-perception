@@ -62,7 +62,7 @@ def main():
     # Compose full 4x4 transformation
     T_velo_to_rect = R0_4x4 @ V2C_4x4  # Now 4x4
 
-    # Final projection: P2 (3x4) × T_velo_to_rect (4x4)
+    # Final projection: projection matrix X Lidar to rectified camera matrix
     T_velo_cam2 = calib.P2 @ T_velo_to_rect  # (3x4) = (3x4) × (4x4)
 
     ## Model
