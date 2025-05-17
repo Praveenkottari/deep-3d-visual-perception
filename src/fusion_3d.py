@@ -46,10 +46,9 @@ def main():
         configs.detect_logs = './logs'
     if not hasattr(configs, 'results_dir'):
         configs.results_dir = './results'
-
     CLASS_NAME_BY_ID = {v: k for k, v in cnf.CLASS_NAME_TO_ID.items() if v >= 0}
 
-    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0027_sync/"
+    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_09_26_drive_0015_sync/"
     calib = Calibration(configs.calib_path)
 
     # Create 4x4 V2C from 3x4
@@ -65,8 +64,6 @@ def main():
 
     # Final projection: P2 (3x4) × T_velo_to_rect (4x4)
     T_velo_cam2 = calib.P2 @ T_velo_to_rect  # (3x4) = (3x4) × (4x4)
-
-    print(T_velo_cam2)
 
     ## Model
     model3d = create_model(configs)
@@ -227,15 +224,15 @@ def main():
             ###### DISPLAY REAL TIME
             cv2.imshow("3D detection", out_img)
             cv2.imshow('full bev with detection',full_bev)
-            cv2.imshow("Depth Map", depth_colored)
+            # cv2.imshow("Depth Map", depth_colored)
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
                 break
     if out_cap:
         out_cap.release()
-    cv2.destroyAllWindows()
-    csv_file.close()
+        cv2.destroyAllWindows()
+        csv_file.close()
 
 
 if __name__ == '__main__':
