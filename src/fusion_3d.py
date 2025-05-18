@@ -48,17 +48,15 @@ def main():
         configs.results_dir = './results'
     CLASS_NAME_BY_ID = {v: k for k, v in cnf.CLASS_NAME_TO_ID.items() if v >= 0}
 
-    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_09_26_drive_0015_sync/"
+    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_09_26_drive_0014_sync/"
     calib = Calibration(configs.calib_path)
 
     # Create 4x4 V2C from 3x4
     V2C_4x4 = np.eye(4)
     V2C_4x4[:3, :] = calib.V2C  # calib.V2C is 3x4
-
     # Create 4x4 R0 from 3x3
     R0_4x4 = np.eye(4)
     R0_4x4[:3, :3] = calib.R0  # calib.R0 is 3x3
-
     # Compose full 4x4 transformation
     T_velo_to_rect = R0_4x4 @ V2C_4x4  # Now 4x4
 
