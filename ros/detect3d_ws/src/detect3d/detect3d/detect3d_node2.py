@@ -143,7 +143,6 @@ class Detect3DOverlayBEVNode(Node):
 
                 rgb_with_boxes = show_rgb_image_with_boxes(rgb_with_boxes, front_cam, self.calib)
 
-                # ✅ Depth annotation
                 box_with_depth, _ = annotate_depths_3d(
                     rgb_with_boxes, front_real, self.calib, use_euclidean=True, draw=True
                 )

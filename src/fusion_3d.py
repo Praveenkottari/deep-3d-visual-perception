@@ -12,14 +12,14 @@ from collections import deque
 import csv
 
 #detection module
-from heads.SFA3D.sfa.data_process.demo_dataset import Demo_KittiDataset
-from heads.SFA3D.sfa.models.model_utils import create_model
-from heads.SFA3D.sfa.utils.evaluation_utils import draw_predictions, convert_det_to_real_values
-import heads.SFA3D.sfa.config.kitti_config as cnf
-from heads.SFA3D.sfa.data_process.transformation import lidar_to_camera_box
-from heads.SFA3D.sfa.utils.visualization_utils import show_rgb_image_with_boxes
-from heads.SFA3D.sfa.data_process.kitti_data_utils import Calibration
-from heads.SFA3D.sfa.utils.demo_utils import parse_demo_configs, do_detect
+from heads.DETECTOR.sfa.data_process.demo_dataset import Demo_KittiDataset
+from heads.DETECTOR.sfa.models.model_utils import create_model
+from heads.DETECTOR.sfa.utils.evaluation_utils import draw_predictions, convert_det_to_real_values
+import heads.DETECTOR.sfa.config.kitti_config as cnf
+from heads.DETECTOR.sfa.data_process.transformation import lidar_to_camera_box
+from heads.DETECTOR.sfa.utils.visualization_utils import show_rgb_image_with_boxes
+from heads.DETECTOR.sfa.data_process.kitti_data_utils import Calibration
+from heads.DETECTOR.sfa.utils.demo_utils import parse_demo_configs, do_detect
 
 # fusion modules
 from pkgs.kitti_utils import *
@@ -175,7 +175,7 @@ def main():
 
 
                # depth text at each box centre
-                img_bgr, _ = annotate_depths_3d(img_bgr,front_real,calib,use_euclidean=True,draw=False)
+                img_bgr, _ = annotate_depths_3d(img_bgr,front_real,calib,use_euclidean=True,draw=True)
             # cv2.imshow("detect", img_bgr)
 
 

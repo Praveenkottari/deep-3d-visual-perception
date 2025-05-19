@@ -23,6 +23,8 @@ setup(
     entry_points={
         'console_scripts': [
             'detect3d_node = detect3d.detect3d_node:main',
+            'detect3d_node2 = detect3d.detect3d_node2:main',   # ← add this line
+
         ],
     },
 )
