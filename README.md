@@ -1,8 +1,10 @@
 
 # Lightweight Sensor Fusion Network for Visual Perception
 
-A brief description of what this project does and who it's for
-
+Robust perception with low computation is pivotal for safe navigation in modern robotics and autonomous driving. Yet most existing solutions rely on heavy post processing, two stage matching, which inflates latency, memory and engineering complexity. To address these limitations, We introduce an end-to-end fusion pipeline that exploits Lidar geometry and camera semantics without any post-hoc 2D/3D association.  
+In this proposed pipeline, raw lidar sweeps are rasterized into a three-channel bird’s-eye-view(BEV) grid. The lightweight ResNet KFPN backbone then regresses fully metrised 7-DoF bounding boxes in a single, anchor free pass and 
+within each box the closest inlier point provides an explicit forward range supplying minimum computation. The system emplyoes the compute aware preprocessing ROI cropping plus a one shot RANSAC ground filter cuts the point load by \(\approx60\%\), while FP16 quantization shrinks the model from \(73\,\text{MB}\) to \(51\,\text{MB}\). The Network benchmarked on KITTI dataset and the model attains \(70.7\,\text{mAP}\), after optimization accuracy reduced minimal with \(2.7\text{-pt}\) mAP drop with about 30{$\%$} reduction in model size.  
+Finally the complete pipeline is packaged as a ROS node, it streams depth aware overlays in real time, meeting the tight latency and memory budgets of embedded robotic and autonomous vehicle platforms.
 
 ## Demo
 
