@@ -34,7 +34,7 @@ from BEV.bev import *
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
-DEBUG = True
+DEBUG = False
 
 
 ## main loop
@@ -48,7 +48,7 @@ def main():
         configs.results_dir = './results'
     CLASS_NAME_BY_ID = {v: k for k, v in cnf.CLASS_NAME_TO_ID.items() if v >= 0}
 
-    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_09_26_drive_0014_sync/"
+    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0047_sync/"
     calib = Calibration(configs.calib_path)
 
     # Create 4x4 V2C from 3x4
@@ -97,6 +97,7 @@ def main():
         for sample_idx in range(len(demo_dataset)):
             
             metadatas, front_bevmap, back_bevmap, img_rgb = demo_dataset.load_bevmap_front_vs_back(sample_idx)
+
             lidar_xyz = metadatas['lidarData'][:, :4]          # drop reflectance
             lidar_xyz = lidar_xyz.T
 
@@ -111,10 +112,13 @@ def main():
             # Front and back detection in the lidar space
             front_detections, front_bevmap, _= do_detect(configs, model3d, front_bevmap, is_front=True)
             back_detections, back_bevmap, _ = do_detect(configs, model3d, back_bevmap, is_front=False)    
+
             # Draw prediction on front top view lidar image
             front_bevmap = (front_bevmap.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
             front_bevmap = cv2.resize(front_bevmap, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT))
             front_bevmap = draw_predictions(front_bevmap, front_detections, configs.num_classes)
+
+            # front_nobox = front_bevmap
             # Draw prediction back topview of lidar image
             back_bevmap = (back_bevmap.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
             back_bevmap = cv2.resize(back_bevmap, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT))
@@ -171,7 +175,9 @@ def main():
 
 
                # depth text at each box centre
-                img_bgr, _ = annotate_depths_3d(img_bgr,front_real,calib,use_euclidean=True,draw=True)
+                img_bgr, _ = annotate_depths_3d(img_bgr,front_real,calib,use_euclidean=True,draw=False)
+            # cv2.imshow("detect", img_bgr)
+
 
             out_img = np.concatenate((img_bgr, full_bev), axis=0)
             full_bev = cv2.rotate(full_bev, cv2.ROTATE_90_COUNTERCLOCKWISE)
@@ -203,7 +209,7 @@ def main():
             smooth_fps = sum(fps_window) / len(fps_window)
             prev_t = now_t      
             # ── annotate fps #
-            cv2.putText(out_img,f"Speed: {smooth_fps:5.1f} FPS",(900, 400),cv2.FONT_HERSHEY_SIMPLEX,1.0,(255, 255, 255),2,cv2.LINE_AA)
+            # cv2.putText(out_img,f"Speed: {smooth_fps:5.1f} FPS",(900, 400),cv2.FONT_HERSHEY_SIMPLEX,1.0,(255, 255, 255),2,cv2.LINE_AA)
 
             #--------*************************************----------------------#
             ### Create the video writer
@@ -221,7 +227,7 @@ def main():
 
             ###### DISPLAY REAL TIME
             cv2.imshow("3D detection", out_img)
-            cv2.imshow('full bev with detection',full_bev)
+            # cv2.imshow('full bev with detection',full_bev)
             # cv2.imshow("Depth Map", depth_colored)
 
             key = cv2.waitKey(1) & 0xFF

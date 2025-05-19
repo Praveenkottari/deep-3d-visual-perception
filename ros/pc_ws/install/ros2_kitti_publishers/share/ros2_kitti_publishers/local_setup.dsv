@@ -1,2 +1,1 @@
-source;share/ros2_kitti_publishers/environment/ament_prefix_path.sh
-source;share/ros2_kitti_publishers/environment/path.sh
+/home/airl010/1_Thesis/deep-3d-visual-perception/ros/pc_ws/build/ros2_kitti_publishers/ament_cmake_environment_hooks/local_setup.dsv

@@ -26,8 +26,8 @@ from pkgs.lid_to_cam import lid_transformation
 
 bridge = CvBridge()
 
-CAM_CALIB_FILE = "/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/calib_cam_to_cam.txt"
-LID_CALIB_FILE = "/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/calib_velo_to_cam.txt"
+CAM_CALIB_FILE = "/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/extra_calib_file/calib_cam_to_cam.txt"
+LID_CALIB_FILE = "/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/extra_calib_file/calib_velo_to_cam.txt"
 
 class Detect3DOverlayBEVNode(Node):
     def __init__(self):
