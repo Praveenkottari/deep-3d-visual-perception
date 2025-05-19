@@ -1,5 +1,5 @@
 
-# Project Title
+# Lightweight Sensor Fusion Network for Visual Perception
 
 A brief description of what this project does and who it's for
 
