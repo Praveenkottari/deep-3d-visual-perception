@@ -34,12 +34,13 @@ from BEV.bev import *
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
-DEBUG = False
+DEBUG = True
 
 
 ## main loop
 def main(): 
     configs = parse_demo_configs()
+    configs.calib_path = "/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/calib_iisc.txt"
    
         # Ensure default paths exist if not set in config
     if not hasattr(configs, 'detect_logs'):
@@ -48,20 +49,28 @@ def main():
         configs.results_dir = './results'
     CLASS_NAME_BY_ID = {v: k for k, v in cnf.CLASS_NAME_TO_ID.items() if v >= 0}
 
-    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0047_sync/"
+    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/IISc_drive2/"
     calib = Calibration(configs.calib_path)
 
-    # Create 4x4 V2C from 3x4
-    V2C_4x4 = np.eye(4)
-    V2C_4x4[:3, :] = calib.V2C  # calib.V2C is 3x4
-    # Create 4x4 R0 from 3x3
-    R0_4x4 = np.eye(4)
-    R0_4x4[:3, :3] = calib.R0  # calib.R0 is 3x3
-    # Compose full 4x4 transformation
-    T_velo_to_rect = R0_4x4 @ V2C_4x4  # Now 4x4
+    R0 = np.eye(4)
 
-    # Final projection: projection matrix X Lidar to rectified camera matrix
-    T_velo_cam2 = calib.P2 @ T_velo_to_rect  # (3x4) = (3x4) × (4x4)
+    P2 = np.array([
+        [1895.0136, 0.0, 734.5304, 0.0],
+        [0.0, 1888.1559, 510.8486, 0.0],
+        [0.0, 0.0, 1.0, 0.0]
+    ])
+
+    V2C = np.array([
+        [0.05673, -0.99837, 0.00627, -0.18829],
+        [0.01552, -0.00539, -0.99987, 0.12501],
+        [0.99827, 0.05682, 0.01519, 0.17587],
+        [0, 0, 0, 1]
+    ])
+
+    # Compose final transformation
+    T_velo_to_rect = R0 @ V2C
+    T_velo_cam2 = P2 @ T_velo_to_rect
+    
 
     ## Model
     model3d = create_model(configs)
@@ -82,7 +91,7 @@ def main():
     prev_t = time.time()
 
 
-    if DEBUG == False:
+    if DEBUG == True:
 
         log_dir = os.path.join(configs.detect_logs, timestamp + "_logs")
         os.makedirs(log_dir, exist_ok=True)
@@ -90,6 +99,18 @@ def main():
         csv_file = open(csv_path, mode='w', newline='')
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(['frame', 'class', 'x', 'y', 'z', 'h', 'w', 'l', 'yaw'])  # header
+
+    video_writers = {}  # Dict to hold all writers
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    frame_rate = 5
+    video_size = (cnf.BEV_WIDTH * 2, 350)
+
+    def annotate_frame(frame, title):
+        timestamp_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        annotated = frame.copy()
+        cv2.putText(annotated, title, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        cv2.putText(annotated, timestamp_text, (annotated.shape[1] - 350, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        return annotated
 
 
     ## Looping thorugh all the samples in the dataset
@@ -103,20 +124,30 @@ def main():
 
             ## RGB raw Image from the dataset
             img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
-            img_bgr = cv2.resize(img_bgr, (cnf.BEV_WIDTH * 2, 375))  
-            
-
             #lidar projection on rgb with ground plan removal option
-            img_bgr = draw_velo_on_rgbimage(lidar_xyz,T_velo_cam2, img_bgr,remove_plane=False,draw_lidar = False)
+
+            img_bgr = draw_velo_on_rgbimage(lidar_xyz,T_velo_cam2, img_bgr,remove_plane=False,draw_lidar = True)
+            lidar_overlay = img_bgr.copy()
+           
+            img_bgr = cv2.resize(img_bgr, (cnf.BEV_WIDTH * 2, 350))  
+
+
 
             # Front and back detection in the lidar space
             front_detections, front_bevmap, _= do_detect(configs, model3d, front_bevmap, is_front=True)
             back_detections, back_bevmap, _ = do_detect(configs, model3d, back_bevmap, is_front=False)    
-
             # print(front_bevmap.shape)
             # print(back_bevmap.shape)
 
+            front_bevmap_nobox = (front_bevmap.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
+            front_bevmap_nobox = cv2.resize(front_bevmap_nobox, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT)) 
+            front_bevmap_nobox = cv2.rotate(front_bevmap_nobox, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            back_bevmap_nobox = (back_bevmap.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
+            back_bevmap_nobox = cv2.resize(back_bevmap_nobox, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT)) 
+            back_bevmap_nobox = cv2.rotate(back_bevmap_nobox, cv2.ROTATE_90_CLOCKWISE)  
 
+            full_nobox = np.concatenate((back_bevmap_nobox, front_bevmap_nobox), axis=1)
+            
             # Draw prediction on front top view lidar image
             front_bevmap = (front_bevmap.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
             front_bevmap = cv2.resize(front_bevmap, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT))
@@ -126,6 +157,7 @@ def main():
             # Draw prediction back topview of lidar image
             back_bevmap = (back_bevmap.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
             back_bevmap = cv2.resize(back_bevmap, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT))
+            
             back_bevmap = draw_predictions(back_bevmap, back_detections, configs.num_classes)
 
             # Rotate the front_bevmap
@@ -154,8 +186,21 @@ def main():
                             csv_writer.writerow([sample_idx, cls_id, x, y, z, h, w, l, yaw])
 
                 # draw 3-D wireframes (need camera-frame corners)
+                # print(f"[INFO] front_real shape: {front_real.shape}")
+
+                # Skip if front_real is empty
+                if front_real is None or front_real.size == 0:
+                    continue  # move to next frame
+
+                # Ensure proper shape
+                if front_real.ndim == 1:
+                    front_real = np.expand_dims(front_real, axis=0)
+
                 front_cam = front_real.copy()
                 front_cam[:, 1:] = lidar_to_camera_box(front_cam[:, 1:], calib.V2C, calib.R0, calib.P2)
+
+
+
                 img_bgr = show_rgb_image_with_boxes(img_bgr, front_cam, calib)
                 
                 # Draw class labels on image
@@ -175,13 +220,14 @@ def main():
                     v = int(img_point[1][0] / img_point[2][0])
 
                     # Draw label just above box center
-                    cv2.putText(img_bgr,class_name,(u, v - 10),cv2.FONT_HERSHEY_SIMPLEX,0.5,(255, 255, 0),2,cv2.LINE_AA)
+                    cv2.putText(img_bgr,class_name,(u, v - 10),cv2.FONT_HERSHEY_SIMPLEX,0.5,(255, 255, 255),2,cv2.LINE_AA)
 
 
                # depth text at each box centre
                 img_bgr, _ = annotate_depths_3d(img_bgr,front_real,calib,use_euclidean=True,draw=True)
-            # cv2.imshow("detect", img_bgr)
-
+            else:
+                # Even if no detections, still annotate or keep img_bgr
+                pass  # keep original img_bgr
 
             out_img = np.concatenate((img_bgr, full_bev), axis=0)
             # print(out_img.shape)
@@ -221,8 +267,8 @@ def main():
             if DEBUG == False:
                 if out_cap is None:
                     out_cap_h, out_cap_w = out_img.shape[:2]
-                    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-                    out_path = os.path.join(configs.results_dir, f'{timestamp}_3d_detction.avi')
+                    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                    out_path = os.path.join(configs.results_dir, f'{timestamp}_fullview.mp4')
                     print('Create video at {}'.format(out_path))
                     out_cap = cv2.VideoWriter(out_path, fourcc, 15, (out_cap_w, out_cap_h))
                 ### Write the output frame to the video
@@ -232,8 +278,24 @@ def main():
 
             ###### DISPLAY REAL TIME
             cv2.imshow("3D detection", out_img)
-            # cv2.imshow('full bev with detection',full_bev)
+            # cv2.imshow("bev_box",full_nobox)
             # cv2.imshow("Depth Map", depth_colored)
+            # cv2.imshow("Lidar overlay",lidar_overlay)
+            # Annotate and write all streams
+            outputs_to_save = {
+                '3d_detection': out_img,
+                'bev_nobox': full_nobox,
+                'full_bev_detection': full_bev,
+                'depth_map': depth_colored,
+                'lidar_overlay': lidar_overlay
+            }
+
+            for name, frame in outputs_to_save.items():
+                if name not in video_writers:
+                    save_path = os.path.join(configs.results_dir,f"{timestamp}_{name}.mp4")
+                    video_writers[name] = cv2.VideoWriter(save_path, fourcc, frame_rate, (frame.shape[1], frame.shape[0]))
+                video_writers[name].write(frame)
+
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
@@ -242,7 +304,8 @@ def main():
         out_cap.release()
         cv2.destroyAllWindows()
         csv_file.close()
-
+    for writer in video_writers.values():
+        writer.release()
 
 if __name__ == '__main__':
     main()

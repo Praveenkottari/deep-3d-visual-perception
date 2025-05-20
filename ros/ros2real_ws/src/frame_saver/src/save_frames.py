@@ -8,7 +8,7 @@ from cv_bridge import CvBridge
 from sensor_msgs.msg import Image, PointCloud2
 import sensor_msgs.point_cloud2 as pc2
 
-save_dir = "/home/airl010/1_Thesis/rosbag/data"
+save_dir = "/home/airl010/1_Thesis/rosbag/data/unsync"
 image_dir = os.path.join(save_dir, "images")
 lidar_dir = os.path.join(save_dir, "lidar")
 
