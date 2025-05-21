@@ -7,7 +7,7 @@ In this proposed pipeline, raw lidar sweeps are rasterized into a three channel 
 
 ![Flowchart](docs/Fusion-pipline.png)
 
-<p align="center"><i>Figure : Dataset preparation work-flow</i></p>
+<p align="center"><i>Figure : Lidar and camera data passed to projection module that the point cloud is optionally ground filtered before rendering onto the image. Simultaneously, the Lidar sweep is rasterized into a BEV map that feeds to detection head. Fused detections and depth cues are combined to compute full 3D bounding boxes./i></p>
 
 ## All below sections are coming soon.....
 ## Demo
