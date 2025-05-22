@@ -1,3 +1,4 @@
+![output](docs/3d_fusion.gif)
 
 # Lightweight Sensor Fusion Network for Visual Perception
 
