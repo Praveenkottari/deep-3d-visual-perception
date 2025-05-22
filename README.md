@@ -9,70 +9,89 @@ In this proposed pipeline, raw lidar sweeps are rasterized into a three channel 
 
 <p align="center"><i> Figure : Lidar and camera data passed to projection module that the point cloud is optionally ground filtered before rendering onto the image. Simultaneously, the Lidar sweep is rasterized into a BEV map that feeds to detection head. Fused detections and depth cues are combined to compute full 3D bounding boxes. /i></p>
 
-## All below sections are coming soon.....
-## Demo
+##  Run Locally
+### Requirement
 
-Insert gif or link to demo
-
-
-## Installation
-
-Install my-project with npm
-
-```bash
-  npm install my-project
-  cd my-project
-```
-    
-## Roadmap
-
-- Additional browser support
-
-- Add more integrations
-
-
-## Run Locally
-
-Clone the project
-
-```bash
-  git clone https://link-to-project
+```shell script
+git clone https://github.com/Praveenkottari/deep-3d-visual-perception.git
+cd deep-3d-visual-perception/
+pip install -r requirements.txt
 ```
 
-Go to the project directory
+#### Training
 
-```bash
-  cd my-project
+##### Single machine, single gpu
+
+```shell script
+python train.py --gpu_idx 0
 ```
+#### Inference
 
-Install dependencies
+The pre-trained model was pushed to this repo.
 
-```bash
-  npm install
 ```
-
-Start the server
-
-```bash
-  npm run start
+python fusion_3d.py 
 ```
 
 
+## Folder structure
 
-## Usage/Examples
-
-```javascript
-import Component from 'my-project'
-
-function App() {
-  return <Component />
-}
 ```
+${ROOT}
+└── weights/    
+    ├── best.pth
+    ├── best1.pth
+└── calibration/    
+    ├── calib.txt
+└── ros/    
+    ├──detedcted3d_ws/
+           ├── src
+    ├──pc_ws/
+         ├── src
+    ├──ros1_ws/
+           ├── src
+    ├──ros2real_ws/
+           ├── src
+└── dataset/    
+    └── data/
+        ├──ImageSets/
+        │   ├── test.txt
+        │   ├── train.txt
+        │   └── val.txt
+        ├── training/
+        │   ├── image_2/ (left color camera)
+        │   ├── image_3/ (right color camera)
+        │   ├── calib/
+        │   ├── label_2/
+        └── testing/  
+        │   ├── image_2/ (left color camera)
+        │   ├── image_3/ (right color camera)
+        │   ├── calib/
+        └── classes_names.txt
+└── src/
+    ├── train/
+    │   ├── train_config.py
+    │   └── kitti_config.py
+    ├── pkgs/
+    │   ├── kitti_dataloader.py
+    │   ├── kitti_dataset.py
+    │   └── kitti_data_utils.py
+    ├── heads/
+    │   ├── fpn_resnet.py
+    │   ├── resnet.py
+    │   ├── model_utils.py
+    └── BEV/
+    │   ├── bev.py
+    ├── fusion_3d.py
 
+├── README.md 
+└── requirements.txt
+```
 
 ## Acknowledgements
 
- - [Awesome Readme Templates](https://awesomeopensource.com/project/elangosundar/awesome-README-templates)
- - [Awesome README](https://github.com/matiassingers/awesome-readme)
- - [How to write a Good readme](https://bulldogjob.com/news/449-how-to-write-a-good-readme-for-your-github-project)
+ - [RTM 3D](https://arxiv.org/abs/2001.03343)
+ - [Focal Loss]([https://github.com/maudzung/SFA3D.git](https://arxiv.org/abs/1708.02002))
+ - [SFA 3D](https://github.com/maudzung/SFA3D.git)
+
 
