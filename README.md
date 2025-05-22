@@ -7,7 +7,7 @@ In this proposed pipeline, raw lidar sweeps are rasterized into a three channel 
 
 ![Flowchart](docs/Fusion-pipline.png)
 
-<p align="center"><i> Figure : Lidar and camera data passed to projection module that the point cloud is optionally ground filtered before rendering onto the image. Simultaneously, the Lidar sweep is rasterized into a BEV map that feeds to detection head. Fused detections and depth cues are combined to compute full 3D bounding boxes. /i></p>
+<p align="center"><i> Figure : Lidar and camera data passed to projection module that the point cloud is optionally ground filtered before rendering onto the image. Simultaneously, the Lidar sweep is rasterized into a BEV map that feeds to detection head. Fused detections and depth cues are combined to compute full 3D bounding boxes. </p>
 
 ##  Run Locally
 ### Requirement
@@ -27,7 +27,7 @@ python train.py --gpu_idx 0
 ```
 #### Inference
 
-The pre-trained model was pushed to this repo.
+The pre-trained models are uploaded in the repo. access from weights folder.
 
 ```
 python fusion_3d.py 
