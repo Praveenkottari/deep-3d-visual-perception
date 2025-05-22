@@ -90,6 +90,10 @@ def annotate_depths_3d(image, dets_velo, calib,
         discards corners with x<0 before taking the minimum, ensuring
         that objects behind the ego vehicle are not considered.
         """
+    
+    if dets_velo is None or len(dets_velo) == 0 or dets_velo.ndim < 2:
+        return image, None
+
     N        = dets_velo.shape[0]
     out      = np.zeros((N, dets_velo.shape[1] + 1))
     out[:, :dets_velo.shape[1]] = dets_velo

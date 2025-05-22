@@ -40,7 +40,7 @@ DEBUG = True
 ## main loop
 def main(): 
     configs = parse_demo_configs()
-    configs.calib_path = "/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/calib_iisc.txt"
+    # configs.calib_path = "/home/airl010/1_Thesis/deep-3d-visual-perception/calibration/calib_iisc.txt"
    
         # Ensure default paths exist if not set in config
     if not hasattr(configs, 'detect_logs'):
@@ -105,12 +105,7 @@ def main():
     frame_rate = 5
     video_size = (cnf.BEV_WIDTH * 2, 350)
 
-    def annotate_frame(frame, title):
-        timestamp_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        annotated = frame.copy()
-        cv2.putText(annotated, title, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-        cv2.putText(annotated, timestamp_text, (annotated.shape[1] - 350, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-        return annotated
+
 
 
     ## Looping thorugh all the samples in the dataset
