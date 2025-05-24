@@ -56,9 +56,9 @@ def main():
     configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0047_sync/"
     # configs.dataset_dir = "/home/airl010/1_Thesis/dataset/data/2011_09_28_drive_0037_sync/"
 
-    OVERLAY = True
+    OVERLAY = False
     REMOVE_PLANE = False
-    DEPTH_ANNOTATE = False
+    DEPTH_ANNOTATE = True
 
     calib = Calibration(configs.calib_path)
 
@@ -102,11 +102,11 @@ def main():
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(['frame', 'class', 'x', 'y', 'z', 'h', 'w', 'l', 'yaw'])  # header
 
-
+    # ── FPS calculation ─────────────────────────────
     ## Looping thorugh all the samples in the dataset
     with torch.no_grad():
         for sample_idx in range(len(demo_dataset)):
-            
+
             metadatas, front_bevmap, back_bevmap, img_rgb = demo_dataset.load_bevmap_front_vs_back(sample_idx)
 
             lidar_xyz = metadatas['lidarData'][:, :4]          # drop reflectance
@@ -121,9 +121,20 @@ def main():
             img_bgr = draw_velo_on_rgbimage(lidar_xyz,T_velo_cam2, img_bgr,remove_plane=REMOVE_PLANE, draw_lidar = OVERLAY)
             lidar_overlay = img_bgr.copy()
 
+
+            now_t  = time.time()    
+
             # Front and back detection in the lidar space
             front_detections, front_bevmap, _= do_detect(configs, model3d, front_bevmap, is_front=True)
             back_detections, back_bevmap, _ = do_detect(configs, model3d, back_bevmap, is_front=False)    
+
+
+            dt    = now_t - prev_t          # seconds taken for this frame
+            fps   = 1.0 / dt if dt else 0.0
+            fps_window.append(fps)
+            smooth_fps = sum(fps_window) / len(fps_window)
+            prev_t = now_t   
+
 
             #raw BEV maps
             front_bevmap_nobox = (front_bevmap.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
@@ -133,7 +144,7 @@ def main():
             back_bevmap_nobox = cv2.resize(back_bevmap_nobox, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT)) 
             back_bevmap_nobox = cv2.rotate(back_bevmap_nobox, cv2.ROTATE_90_CLOCKWISE)  
             full_nobox = np.concatenate((back_bevmap_nobox, front_bevmap_nobox), axis=1)
-            full_nobox = cv2.rotate(full_nobox, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            # full_nobox = cv2.rotate(full_nobox, cv2.ROTATE_90_COUNTERCLOCKWISE)
             
 
             # Draw prediction on front top view lidar image
@@ -152,9 +163,12 @@ def main():
             # Rotate the back_bevmap
             back_bevmap = cv2.rotate(back_bevmap, cv2.ROTATE_90_CLOCKWISE)
             # merge front and back bevmap to get full top lidar view with detection and boudning box
+
+
             full_bev = np.concatenate((back_bevmap, front_bevmap), axis=1)
 
-            
+
+
             # skip early if nothing detected
             if front_detections is not None and len(front_detections) > 0:
                 # Convert to metric Velodyne frame
@@ -204,6 +218,8 @@ def main():
 
 
             out_img = np.concatenate((img_bgr, full_bev), axis=0)
+            # out_img = np.concatenate((lidar_overlay, full_nobox), axis=0)
+
             # print(out_img.shape)
             full_bev = cv2.rotate(full_bev, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
@@ -222,31 +238,25 @@ def main():
             depth_colored[mask] = (255, 255, 255)  # You can try (0, 0, 255) for red
 
 
-            # # ── FPS calculation ─────────────────────────────
-            # now_t  = time.time()    
-            # # if you run on GPU, force CUDA to finish first so the timing is accurate
-            # if configs.device.type == "cuda":
-            #     torch.cuda.synchronize()
-
-            # dt    = now_t - prev_t          # seconds taken for this frame
-            # fps   = 1.0 / dt if dt else 0.0
-            # fps_window.append(fps)
-            # smooth_fps = sum(fps_window) / len(fps_window)
-            # prev_t = now_t      
-            # # ── annotate fps #
+            # if you run on GPU, force CUDA to finish first so the timing is accurate
+            if configs.device.type == "cuda":
+                torch.cuda.synchronize()
+            
+   
+            # ── annotate fps #
             # cv2.putText(out_img,f"Speed: {smooth_fps:5.1f} FPS",(900, 400),cv2.FONT_HERSHEY_SIMPLEX,1.0,(255, 255, 255),2,cv2.LINE_AA)
 
-            #--------*************************************----------------------#
-            ### Create the video writer
-            # if DEBUG == False:
-            #     if out_cap is None:
-            #         out_cap_h, out_cap_w = out_img.shape[:2]
-            #         fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-            #         out_path = os.path.join(configs.results_dir, f'{timestamp}_3d_detction.avi')
-            #         print('Create video at {}'.format(out_path))
-            #         out_cap = cv2.VideoWriter(out_path, fourcc, 5, (out_cap_w, out_cap_h))
-            #     ### Write the output frame to the video
-            #     out_cap.write(out_img)
+            ###--------*************************************----------------------#
+            ## Create the video writer
+            if DEBUG == False:
+                if out_cap is None:
+                    out_cap_h, out_cap_w = out_img.shape[:2]
+                    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                    out_path = os.path.join(configs.results_dir, f'{timestamp}_3d_detction.mp4')
+                    print('Create video at {}'.format(out_path))
+                    out_cap = cv2.VideoWriter(out_path, fourcc, 5, (out_cap_w, out_cap_h))
+                ### Write the output frame to the video
+                out_cap.write(out_img)
             
             #--------*************************************----------------------#
 
@@ -254,17 +264,18 @@ def main():
             cv2.imshow("3D detection", out_img)
             # cv2.imshow('full bev with detection',full_bev)
             # cv2.imshow("Depth Map", depth_colored)
-            outputs_to_save = {
-                '3d_detection': out_img,
-                'bev_nobox': full_nobox,
-                'full_bev_detection': full_bev,
-                'lidar_overlay': lidar_overlay
-            }
-            for name, frame in outputs_to_save.items():
-                if name not in video_writers:
-                    save_path = os.path.join(configs.results_dir,f"{timestamp}_{name}.mp4")
-                    video_writers[name] = cv2.VideoWriter(save_path, fourcc, frame_rate, (frame.shape[1], frame.shape[0]))
-                video_writers[name].write(frame)
+            # outputs_to_save = {
+            #     '3d_detection': out_img,
+            #     'bev_nobox': full_nobox,
+            #     'full_bev_detection': full_bev,
+            #     'lidar_overlay': lidar_overlay,
+            #     'Depth Map': depth_colored
+            # }
+            # for name, frame in outputs_to_save.items():
+            #     if name not in video_writers:
+            #         save_path = os.path.join(configs.results_dir,f"{timestamp}_{name}.mp4")
+            #         video_writers[name] = cv2.VideoWriter(save_path, fourcc, frame_rate, (frame.shape[1], frame.shape[0]))
+            #     video_writers[name].write(frame)
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):

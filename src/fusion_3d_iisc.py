@@ -49,7 +49,9 @@ def main():
         configs.results_dir = './results'
     CLASS_NAME_BY_ID = {v: k for k, v in cnf.CLASS_NAME_TO_ID.items() if v >= 0}
 
-    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/IISc_drive2/"
+    # configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/IISc_drive2/"
+    configs.dataset_dir = "/home/airl010/1_Thesis/visionNav/fusion/dataset/2011_10_03_drive_0047_sync/"
+
     calib = Calibration(configs.calib_path)
 
     R0 = np.eye(4)
