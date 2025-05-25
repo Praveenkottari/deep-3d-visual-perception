@@ -102,7 +102,6 @@ def main():
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(['frame', 'class', 'x', 'y', 'z', 'h', 'w', 'l', 'yaw'])  # header
 
-    # ── FPS calculation ─────────────────────────────
     ## Looping thorugh all the samples in the dataset
     with torch.no_grad():
         for sample_idx in range(len(demo_dataset)):
@@ -115,19 +114,15 @@ def main():
             ## RGB raw Image from the dataset
             img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
             img_bgr = cv2.resize(img_bgr, (cnf.BEV_WIDTH * 2, 375))  
-            
 
             #lidar projection on rgb with ground plan removal option
             img_bgr = draw_velo_on_rgbimage(lidar_xyz,T_velo_cam2, img_bgr,remove_plane=REMOVE_PLANE, draw_lidar = OVERLAY)
             lidar_overlay = img_bgr.copy()
 
-
             now_t  = time.time()    
-
             # Front and back detection in the lidar space
             front_detections, front_bevmap, _= do_detect(configs, model3d, front_bevmap, is_front=True)
             back_detections, back_bevmap, _ = do_detect(configs, model3d, back_bevmap, is_front=False)    
-
 
             dt    = now_t - prev_t          # seconds taken for this frame
             fps   = 1.0 / dt if dt else 0.0
@@ -222,7 +217,6 @@ def main():
 
             # print(out_img.shape)
             full_bev = cv2.rotate(full_bev, cv2.ROTATE_90_COUNTERCLOCKWISE)
-
 
             # Step 1: make lidar points homogeneous (4, N)
             lidar_hom = np.vstack((lidar_xyz[:3, :], np.ones((1, lidar_xyz.shape[1]))))  # (4, N)
