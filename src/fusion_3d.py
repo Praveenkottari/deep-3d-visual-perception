@@ -29,11 +29,9 @@ from pkgs.cam_to_cam import cam_transformation
 from pkgs.lid_to_cam import lid_transformation
 from pkgs.fusion_utils import *
 from BEV.bev import *
-
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 DEBUG = False
-
 
 ## main loop
 def main(): 
@@ -43,8 +41,7 @@ def main():
     video_size = (cnf.BEV_WIDTH * 2, 350)
 
 
-    configs = parse_demo_configs()
-   
+    configs = parse_demo_configs()  
         # Ensure default paths exist if not set in config
     if not hasattr(configs, 'detect_logs'):
         configs.detect_logs = './logs'
@@ -130,7 +127,6 @@ def main():
             smooth_fps = sum(fps_window) / len(fps_window)
             prev_t = now_t   
 
-
             #raw BEV maps
             front_bevmap_nobox = (front_bevmap.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
             front_bevmap_nobox = cv2.resize(front_bevmap_nobox, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT)) 
@@ -139,8 +135,7 @@ def main():
             back_bevmap_nobox = cv2.resize(back_bevmap_nobox, (cnf.BEV_WIDTH, cnf.BEV_HEIGHT)) 
             back_bevmap_nobox = cv2.rotate(back_bevmap_nobox, cv2.ROTATE_90_CLOCKWISE)  
             full_nobox = np.concatenate((back_bevmap_nobox, front_bevmap_nobox), axis=1)
-            # full_nobox = cv2.rotate(full_nobox, cv2.ROTATE_90_COUNTERCLOCKWISE)
-            
+            # full_nobox = cv2.rotate(full_nobox, cv2.ROTATE_90_COUNTERCLOCKWISE)         
 
             # Draw prediction on front top view lidar image
             front_bevmap = (front_bevmap.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
@@ -157,12 +152,9 @@ def main():
             front_bevmap = cv2.rotate(front_bevmap, cv2.ROTATE_90_COUNTERCLOCKWISE) 
             # Rotate the back_bevmap
             back_bevmap = cv2.rotate(back_bevmap, cv2.ROTATE_90_CLOCKWISE)
-            # merge front and back bevmap to get full top lidar view with detection and boudning box
-
+            # merge front and back bevmap to get full top lidar view with detection and boudning bo
 
             full_bev = np.concatenate((back_bevmap, front_bevmap), axis=1)
-
-
 
             # skip early if nothing detected
             if front_detections is not None and len(front_detections) > 0:
@@ -206,11 +198,9 @@ def main():
                     # Draw label just above box center
                     cv2.putText(img_bgr,class_name,(u, v - 10),cv2.FONT_HERSHEY_SIMPLEX,0.5,(255, 255, 0),2,cv2.LINE_AA)
 
-
                # depth text at each box centre
                 img_bgr, _ = annotate_depths_3d(img_bgr,front_real,calib,use_euclidean=True,draw=DEPTH_ANNOTATE)
             # cv2.imshow("detect", img_bgr)
-
 
             out_img = np.concatenate((img_bgr, full_bev), axis=0)
             # out_img = np.concatenate((lidar_overlay, full_nobox), axis=0)
