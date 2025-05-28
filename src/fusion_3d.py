@@ -55,7 +55,7 @@ def main():
 
     OVERLAY = False
     REMOVE_PLANE = False
-    DEPTH_ANNOTATE = True
+    DEPTH_ANNOTATE =False
 
     calib = Calibration(configs.calib_path)
 
@@ -89,7 +89,6 @@ def main():
     out_cap = None
     fps_window = deque(maxlen=30) 
     prev_t = time.time()
-
 
     if DEBUG == False:
         log_dir = os.path.join(configs.detect_logs, timestamp + "_logs")
