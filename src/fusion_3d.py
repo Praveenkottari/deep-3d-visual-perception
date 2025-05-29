@@ -40,7 +40,6 @@ def main():
     frame_rate = 5
     video_size = (cnf.BEV_WIDTH * 2, 350)
 
-
     configs = parse_demo_configs()  
         # Ensure default paths exist if not set in config
     if not hasattr(configs, 'detect_logs'):
