@@ -25,8 +25,6 @@ from heads.DETECTOR.sfa.utils.demo_utils import parse_demo_configs, do_detect
 from pkgs.kitti_utils import *
 from pkgs.kitti_detection_utils import *
 from pkgs.utils import *
-from pkgs.cam_to_cam import cam_transformation
-from pkgs.lid_to_cam import lid_transformation
 from pkgs.fusion_utils import *
 from BEV.bev import *
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
